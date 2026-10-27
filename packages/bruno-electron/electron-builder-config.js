@@ -3,8 +3,8 @@ require('dotenv').config({ path: process.env.DOTENV_PATH });
 const isBenchmark = process.env.BRUNO_BENCHMARK === 'true';
 
 const config = {
-  appId: 'com.usebruno.app',
-  productName: isBenchmark ? 'Bruno Benchmark' : 'Bruno',
+  appId: 'com.brunoplus.app',
+  productName: isBenchmark ? 'Bruno Plus Benchmark' : 'Bruno Plus',
   extraMetadata: {
     brunoBuild: {
       benchmark: isBenchmark,
