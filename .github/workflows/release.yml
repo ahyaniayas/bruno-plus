@@ -1,0 +1,112 @@
+name: Release
+
+# Triggered by a version tag, e.g. v4.3.0-plus.1
+on:
+  push:
+    tags:
+      - 'v*-plus.*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag to release (must already exist)'
+        required: true
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build ${{ matrix.platform }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: mac
+            os: macos-latest
+            artifact: mac
+          - platform: win
+            os: windows-latest
+            artifact: win
+          - platform: linux
+            os: ubuntu-latest
+            artifact: linux
+
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Setup Node and build workspace libraries
+        uses: ./.github/actions/common/setup-node-deps
+
+      - name: Build renderer
+        run: npm run build:web
+
+      # The renderer must be copied into packages/bruno-electron/web before
+      # packaging, otherwise the app ships without a UI.
+      - name: Stage renderer into electron package
+        shell: bash
+        run: |
+          rm -rf packages/bruno-electron/web
+          mkdir -p packages/bruno-electron/web
+          cp -r packages/bruno-app/dist/* packages/bruno-electron/web/
+          find packages/bruno-electron/web -name '*.map' -type f -delete
+
+      - name: Package
+        shell: bash
+        working-directory: packages/bruno-electron
+        env:
+          # Signing is optional. Without these the build is unsigned and users
+          # must bypass Gatekeeper (macOS) or SmartScreen (Windows) manually.
+          CSC_LINK: ${{ secrets.CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+          CSC_NAME: ${{ secrets.CSC_NAME }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: npx electron-builder --${{ matrix.platform }} --config electron-builder-config.js --publish never
+
+      - name: Upload installers
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          if-no-files-found: error
+          # Only the artifacts users download. blockmap/yml files belong to the
+          # auto-updater, which this fork does not ship.
+          path: |
+            packages/bruno-electron/out/*.dmg
+            packages/bruno-electron/out/*.zip
+            packages/bruno-electron/out/*.exe
+            packages/bruno-electron/out/*.AppImage
+            packages/bruno-electron/out/*.deb
+
+  release:
+    name: Publish release
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Download installers
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: List collected artifacts
+        run: ls -la dist
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ inputs.tag || github.ref_name }}
+        run: |
+          gh release create "$TAG" dist/* \
+            --title "Bruno Plus $TAG" \
+            --notes-file .github/release-notes-template.md \
+            --draft \
+            --verify-tag
