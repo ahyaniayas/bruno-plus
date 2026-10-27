@@ -110,6 +110,17 @@ const ChangesTab = ({ collectionUid, collectionPath, repo }) => {
     }
   };
 
+  const handleUnstageAll = async () => {
+    setBusy(true);
+    try {
+      await dispatch(unstageFiles(collectionUid, collectionPath, staged.map((file) => file.path)));
+    } catch (error) {
+      toast.error(error?.message || 'Failed to unstage files');
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const handleDiscardConfirmed = async () => {
     const target = discardTarget;
     setDiscardTarget(null);
@@ -176,7 +187,16 @@ const ChangesTab = ({ collectionUid, collectionPath, repo }) => {
         {staged.length > 0 && (
           <>
             <div className="git-group-title">
-              Staged ({staged.length})
+              <span>Staged ({staged.length})</span>
+              <span style={{ marginLeft: 'auto' }}>
+                <ActionIcon
+                  label="Unstage all"
+                  onClick={handleUnstageAll}
+                  data-testid="git-unstage-all-btn"
+                >
+                  <IconMinus size={13} strokeWidth={1.5} />
+                </ActionIcon>
+              </span>
             </div>
             {staged.map((file) => (
               <FileRow

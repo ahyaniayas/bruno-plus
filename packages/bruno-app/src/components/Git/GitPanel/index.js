@@ -76,7 +76,7 @@ const GitPanel = ({ collectionUid, collectionPath }) => {
       <div className="git-panel-header">
         <span className="git-branch-name" title={repo.currentBranch}>
           <IconBrandGit size={13} strokeWidth={1.5} />
-          {repo.currentBranch || 'detached'}
+          {repo.currentBranch || 'no branch'}
         </span>
         <span className="git-refresh">
           <ActionIcon

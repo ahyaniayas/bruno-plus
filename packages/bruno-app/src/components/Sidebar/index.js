@@ -9,7 +9,6 @@ import { setLocalStorageValue, SIDEBAR_WIDTH_KEY } from 'utils/common/localStora
 import CollectionsSection from './Sections/CollectionsSection/index';
 import ApiSpecsSection from './Sections/ApiSpecsSection/index';
 import MockServersSection from './Sections/MockServersSection/index';
-import GitSection from './Sections/GitSection/index';
 import useKeybinding from 'hooks/useKeybinding';
 import useClearSidebarSelectionOnEscape from 'hooks/useClearSidebarSelectionOnEscape';
 import { useBetaFeature, BETA_FEATURES } from 'utils/beta-features';
@@ -28,10 +27,6 @@ const Sidebar = () => {
       {
         id: 'api-specs',
         component: ApiSpecsSection
-      },
-      {
-        id: 'git',
-        component: GitSection
       }
     ];
 

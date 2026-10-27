@@ -282,6 +282,36 @@ describe('GitPanel — Changes tab', () => {
       });
     });
   });
+
+  it('unstages every staged file at once', async () => {
+    await renderPanel({
+      staged: [{ path: 'collection/a.bru' }, { path: 'collection/b.bru' }]
+    });
+
+    fireEvent.click(screen.getByTestId('git-unstage-all-btn'));
+
+    await waitFor(() => {
+      expect(window.ipcRenderer.invoke).toHaveBeenCalledWith('renderer:git-unstage', {
+        collectionPath: PATH,
+        filePaths: ['collection/a.bru', 'collection/b.bru']
+      });
+    });
+  });
+
+  it('stages every unstaged file at once', async () => {
+    await renderPanel({
+      unstaged: [{ path: 'collection/a.bru' }, { path: 'collection/b.bru' }]
+    });
+
+    fireEvent.click(screen.getByTestId('git-stage-all-btn'));
+
+    await waitFor(() => {
+      expect(window.ipcRenderer.invoke).toHaveBeenCalledWith('renderer:git-stage', {
+        collectionPath: PATH,
+        filePaths: ['collection/a.bru', 'collection/b.bru']
+      });
+    });
+  });
 });
 
 describe('GitPanel — Merge tab', () => {

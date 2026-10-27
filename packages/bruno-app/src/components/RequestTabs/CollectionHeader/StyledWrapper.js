@@ -22,6 +22,43 @@ const StyledWrapper = styled.div`
     }
   }
 
+  .git-topbar-btn {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    padding: 4px 8px;
+    height: 26px;
+    border: 1px solid ${(props) => props.theme.border.border1};
+    border-radius: ${(props) => props.theme.border.radius.base};
+    background: transparent;
+    color: ${(props) => props.theme.colors.text.subtext1};
+    font-size: ${(props) => props.theme.font.size.sm};
+    cursor: pointer;
+    white-space: nowrap;
+    max-width: 220px;
+
+    &:hover {
+      background: ${(props) => props.theme.background.surface0};
+      color: ${(props) => props.theme.text};
+    }
+
+    &:disabled {
+      opacity: 0.6;
+      cursor: default;
+    }
+
+    &.is-repo {
+      color: ${(props) => props.theme.text};
+      border-color: ${(props) => props.theme.border.border2};
+    }
+
+    .git-topbar-label {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+  }
+
   .switcher-trigger {
     display: flex;
     align-items: center;

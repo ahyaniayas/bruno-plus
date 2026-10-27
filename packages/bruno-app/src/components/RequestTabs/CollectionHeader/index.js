@@ -51,6 +51,7 @@ import { useTheme } from 'providers/Theme';
 import { useBetaFeature, BETA_FEATURES } from 'utils/beta-features';
 import CreateMockServerModal from 'components/MockServer/CreateMockServerModal';
 import { getMockServerInstances, openMockServerDashboard } from 'utils/mock-server/mock-server-instances';
+import GitTopBarButton from 'components/Git/GitTopBarButton';
 
 const readDismissedCollections = () => {
   try {
@@ -299,6 +300,14 @@ const CollectionHeader = ({ collection, isScratchCollection }) => {
       uid: uuid(),
       collectionUid: collection.uid,
       type: 'openapi-sync'
+    }));
+  };
+
+  const openGitPlusPanel = () => {
+    dispatch(addTab({
+      uid: uuid(),
+      collectionUid: collection.uid,
+      type: 'git-plus'
     }));
   };
 
@@ -693,6 +702,11 @@ const CollectionHeader = ({ collection, isScratchCollection }) => {
         <div className="header-actions flex gap-1.5 items-center">
           {!isScratchCollection && (
             <>
+              <GitTopBarButton
+                collectionUid={collection.uid}
+                collectionPath={collection.pathname}
+                onOpenPanel={openGitPlusPanel}
+              />
               {appAvailable && (
                 <div className="mode-toggle" data-testid="view-mode-toggle">
                   <ToolHint text="Request" toolhintId="ViewModeRequestToolhintId" place="bottom">
