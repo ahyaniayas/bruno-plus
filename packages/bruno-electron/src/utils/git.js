@@ -76,6 +76,16 @@ const getCollectionGitRootPath = (collectionPath) => {
   return gitRootPath;
 };
 
+/**
+ * Drop the cached lookup for a collection.
+ *
+ * A missing repo is cached as null, so after `git init` the cache would keep
+ * reporting "not a repository" until the app restarts.
+ */
+const invalidateCollectionGitRootPath = (collectionPath) => {
+  collectionPathToGitRootPathMap.delete(collectionPath);
+};
+
 const getCollectionGitRepoUrl = async (gitRootPath) => {
   return new Promise((resolve, reject) => {
     const git = getSimpleGitInstanceForPath(gitRootPath);
@@ -244,6 +254,50 @@ const discardChanges = async (gitRootPath, filePaths) => {
       reject(gitStatusError);
     }
   });
+};
+
+const resetHardToHead = async (gitRootPath) => {
+  return new Promise((resolve, reject) => {
+    const git = getSimpleGitInstanceForPath(gitRootPath);
+    git.raw(['reset', '--hard', 'HEAD'], (err, res) => {
+      if (err) {
+        reject(err);
+        return;
+      }
+      resolve(res);
+    });
+  });
+};
+
+const undoLastCommit = async (gitRootPath, { hard = false } = {}) => {
+  return new Promise((resolve, reject) => {
+    const git = getSimpleGitInstanceForPath(gitRootPath);
+    const args = hard ? ['reset', '--hard', 'HEAD~1'] : ['reset', 'HEAD~1'];
+    git.raw(args, (err, res) => {
+      if (err) {
+        reject(err);
+        return;
+      }
+      resolve(res);
+    });
+  });
+};
+
+const revertCommit = async (gitRootPath, commitHash) => {
+  return new Promise((resolve, reject) => {
+    const git = getSimpleGitInstanceForPath(gitRootPath);
+    git.raw(['revert', '--no-edit', commitHash], (err, res) => {
+      if (err) {
+        reject(err);
+        return;
+      }
+      resolve(res);
+    });
+  });
+};
+
+const isMergeInProgress = (gitRootPath) => {
+  return fs.existsSync(path.join(gitRootPath, '.git', 'MERGE_HEAD'));
 };
 
 const commitChanges = async (gitRootPath, message) => {
@@ -765,6 +819,27 @@ const listBranchesForRemoteUrl = async ({ url }) => {
     console.error('Error listing remote branches:', error);
     throw error;
   }
+};
+
+/**
+ * Point a local branch at a remote branch, fetching first.
+ *
+ * Used right after `git init` + `addRemote` so the fresh repo tracks its
+ * upstream without the user running git by hand. Failures are non-fatal: the
+ * repo is still usable, it just has no upstream configured.
+ */
+const setUpstreamBranch = async (gitRootPath, localBranch, remoteBranch, remote = 'origin') => {
+  const git = getSimpleGitInstanceForPath(gitRootPath);
+  await git.raw(['fetch', remote, '--prune']).catch(() => {});
+  return git.raw(['branch', `--set-upstream-to=${remote}/${remoteBranch}`, localBranch]);
+};
+
+/**
+ * Change the URL of an existing remote.
+ */
+const setRemoteUrl = async (gitRootPath, remoteName, remoteUrl) => {
+  const git = getSimpleGitInstanceForPath(gitRootPath);
+  return git.raw(['remote', 'set-url', remoteName, remoteUrl]);
 };
 
 const fetchRemotes = (gitRootPath) => {
@@ -1808,6 +1883,7 @@ const getGitGraph = async (gitRootPath, branchName, limit = 50) => {
 
 module.exports = {
   getCollectionGitRootPath,
+  invalidateCollectionGitRootPath,
   getCollectionGitRepoUrl,
   stageChanges,
   unstageChanges,
@@ -1833,6 +1909,8 @@ module.exports = {
   parseRemoteBranches,
   fetchChanges,
   fetchRemotes,
+  setRemoteUrl,
+  setUpstreamBranch,
   fetchRemoteBranches,
   checkoutRemoteGitBranch,
   getGitVersion,
@@ -1858,5 +1936,9 @@ module.exports = {
   getFileContentAtCommit,
   getFileContentForVisualDiff,
   getWorkingFileContentForVisualDiff,
-  getStashFileContentForVisualDiff
+  getStashFileContentForVisualDiff,
+  resetHardToHead,
+  undoLastCommit,
+  revertCommit,
+  isMergeInProgress
 };

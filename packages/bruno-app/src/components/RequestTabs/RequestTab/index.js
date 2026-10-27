@@ -211,7 +211,8 @@ const RequestTab = ({ tab, collection, tabIndex, collectionRequestTabs, folderUi
     'openapi-spec',
     'mock-server',
     'changelog',
-    'api-spec'
+    'api-spec',
+    'git-plus'
   ];
 
   const hasDraft = tab.type === 'collection-settings' && collection?.draft;

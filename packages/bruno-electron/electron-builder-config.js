@@ -3,8 +3,8 @@ require('dotenv').config({ path: process.env.DOTENV_PATH });
 const isBenchmark = process.env.BRUNO_BENCHMARK === 'true';
 
 const config = {
-  appId: 'com.usebruno.app',
-  productName: isBenchmark ? 'Bruno Benchmark' : 'Bruno',
+  appId: 'com.brunoplus.app',
+  productName: isBenchmark ? 'Bruno Plus Benchmark' : 'Bruno Plus',
   extraMetadata: {
     brunoBuild: {
       benchmark: isBenchmark,
@@ -23,15 +23,12 @@ const config = {
     }
   ],
   files: ['**/*'],
-  afterSign: 'notarize.js',
+  // Notarize only when Apple credentials are provided (CI with secrets).
+  afterSign: process.env.APPLE_ID ? 'notarize.js' : undefined,
   mac: {
     artifactName: '${name}_${version}_${arch}_${os}.${ext}',
     category: 'public.app-category.developer-tools',
     target: [
-      {
-        target: 'pkg',
-        arch: ['x64', 'arm64']
-      },
       {
         target: 'dmg',
         arch: ['x64', 'arm64']
@@ -42,8 +39,9 @@ const config = {
       }
     ],
     icon: 'resources/icons/mac/icon.icns',
-    hardenedRuntime: true,
-    identity: 'Anoop MD (W7LPPWA48L)',
+    // Ad-hoc signature unless a Developer ID is supplied via env.
+    hardenedRuntime: !!process.env.CSC_NAME,
+    identity: process.env.CSC_NAME || null,
     entitlements: 'resources/entitlements.mac.plist',
     entitlementsInherit: 'resources/entitlements.mac.plist',
     notarize: false,
@@ -63,15 +61,11 @@ const config = {
     target: [
       {
         target: 'AppImage',
-        arch: ['x64', 'arm64']
+        arch: ['x64']
       },
       {
         target: 'deb',
-        arch: ['x64', 'arm64']
-      },
-      {
-        target: 'rpm',
-        arch: ['x64', 'arm64']
+        arch: ['x64']
       }
     ],
     protocols: [
@@ -115,11 +109,11 @@ const config = {
     target: [
       {
         target: 'nsis',
-        arch: ['x64', 'arm64']
+        arch: ['x64']
       }
     ],
     sign: null,
-    publisherName: 'Bruno Software Inc'
+    publisherName: 'Bruno Plus'
   },
   nsis: {
     include: 'resources/installer.nsh',

@@ -22,6 +22,72 @@ const StyledWrapper = styled.div`
     }
   }
 
+  .git-topbar-group {
+    display: inline-flex;
+    align-items: stretch;
+    height: 26px;
+    border: 1px solid ${(props) => props.theme.border.border1};
+    border-radius: ${(props) => props.theme.border.radius.base};
+    overflow: hidden;
+    background: transparent;
+
+    &.is-repo {
+      border-color: ${(props) => props.theme.border.border2};
+    }
+
+    button {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      border: none;
+      background: transparent;
+      color: ${(props) => props.theme.colors.text.subtext1};
+      font-size: ${(props) => props.theme.font.size.sm};
+      cursor: pointer;
+      white-space: nowrap;
+
+      &:hover:not(:disabled) {
+        background: ${(props) => props.theme.background.surface0};
+        color: ${(props) => props.theme.text};
+      }
+
+      &:disabled {
+        opacity: 0.6;
+        cursor: default;
+      }
+    }
+
+    &.is-repo button {
+      color: ${(props) => props.theme.text};
+    }
+
+    .git-topbar-main {
+      padding: 0 8px;
+      min-width: 0;
+      max-width: 200px;
+    }
+
+    .git-topbar-label {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .git-topbar-caret {
+      padding: 0 5px;
+      border-left: 1px solid ${(props) => props.theme.border.border1};
+    }
+
+    /* Without the caret the group is a single button, so keep it fully rounded. */
+    &.no-menu {
+      border-radius: ${(props) => props.theme.border.radius.base};
+
+      .git-topbar-main {
+        border-radius: ${(props) => props.theme.border.radius.base};
+      }
+    }
+  }
+
   .switcher-trigger {
     display: flex;
     align-items: center;

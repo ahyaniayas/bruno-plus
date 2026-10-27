@@ -1,225 +1,169 @@
 <br />
 <img src="assets/images/logo-transparent.png" width="80"/>
 
-### Bruno - Opensource IDE for exploring and testing APIs.
+### Bruno Plus — a fork of Bruno with a built-in Git UI
 
-[![GitHub version](https://badge.fury.io/gh/usebruno%2Fbruno.svg)](https://badge.fury.io/gh/usebruno%2Fbruno)
-[![CI](https://github.com/usebruno/bruno/actions/workflows/tests.yml/badge.svg?branch=main)](https://github.com/usebruno/bruno/actions/workflows/tests.yml)
-[![Commit Activity](https://img.shields.io/github/commit-activity/m/usebruno/bruno)](https://github.com/usebruno/bruno/pulse)
-[![X](https://img.shields.io/twitter/follow/use_bruno?style=social&logo=x)](https://twitter.com/use_bruno)
-[![Website](https://img.shields.io/badge/Website-Visit-blue)](https://www.usebruno.com)
-[![Download](https://img.shields.io/badge/Download-Latest-brightgreen)](https://www.usebruno.com/downloads)
+Bruno Plus is a fork of [Bruno](https://github.com/usebruno/bruno) — the offline-first API client that stores
+collections as plain text on your filesystem — with one substantial addition: **a Git interface inside the
+app**. Stage, commit, stash, branch, pull and push without leaving the window.
 
-**English**
-| [Українська](docs/readme/readme_ua.md)
-| [Русский](docs/readme/readme_ru.md)
-| [Türkçe](docs/readme/readme_tr.md)
-| [Deutsch](docs/readme/readme_de.md)
-| [Français](docs/readme/readme_fr.md)
-| [Português (BR)](docs/readme/readme_pt_br.md)
-| [한국어](docs/readme/readme_kr.md)
-| [বাংলা](docs/readme/readme_bn.md)
-| [Español](docs/readme/readme_es.md)
-| [Italiano](docs/readme/readme_it.md)
-| [Română](docs/readme/readme_ro.md)
-| [Polski](docs/readme/readme_pl.md)
-| [简体中文](docs/readme/readme_cn.md)
-| [正體中文](docs/readme/readme_zhtw.md)
-| [العربية](docs/readme/readme_ar.md)
-| [日本語](docs/readme/readme_ja.md)
-| [ქართული](docs/readme/readme_ka.md)
-| [Nederlands](docs/readme/readme_nl.md)
-| [فارسی](docs/readme/readme_fa.md)
-| [हिन्दी](docs/readme/readme_hi.md)
+Everything else is upstream Bruno. This is not a rewrite and not a separate product.
 
-Bruno is a new and innovative API client, aimed at revolutionizing the status quo represented by Postman and similar tools out there.
+---
 
-Bruno stores your collections directly in a folder on your filesystem. We use a plain text markup language, Bru, to save information about API requests.
+## Why this fork exists
 
-You can use Git or any version control of your choice to collaborate over your API collections.
+Bruno removed its Git UI from the open-source edition. The git *backend* is still there —
+`packages/bruno-electron/src/utils/git.js` is ~1900 lines and exports around 50 functions — but only three IPC
+handlers were ever wired to the renderer, and the renderer has no git components at all. So the capability
+exists in the source tree but is unreachable from the app.
 
-Bruno is offline-only. There are no plans to add cloud-sync to Bruno, ever. We value your data privacy and believe it should stay on your device. Read our long-term vision [here](https://github.com/usebruno/bruno/discussions/269)
+Bruno Plus connects that existing backend to a UI. It does not reimplement git.
 
-[Download Bruno](https://www.usebruno.com/downloads)
+## What was added
 
-📢 Watch our recent talk at India FOSS 3.0 Conference [here](https://www.youtube.com/watch?v=7bSMFpbcPiY)
+### Git Plus panel
 
-![bruno](assets/images/landing-2-dark.png#gh-light-mode-only)
-![bruno](assets/images/landing-2-light.png#gh-dark-mode-only) <br /><br />
+Reachable from the top bar of any collection. The label shows `Git Plus` before a repository is connected and
+`Git Plus - <branch>` afterwards. A separate caret opens the branch list and repository actions.
 
-## Commercial Versions ✨
+| Tab | What it does |
+| --- | --- |
+| **Changes** | Stage / unstage files (individually or all at once), discard changes, commit, inline diff viewer, and **push** the current branch |
+| **Pull** | Pull from `origin` with fast-forward-only (default) or merge strategy |
+| **Stash** | Create, apply and drop stashes |
+| **Branch** | List, create and switch branches |
+| **Config** | Edit or remove the `origin` remote |
+| **Gitignore / Readme** | Edit `.gitignore` and the collection readme in-app |
+| **Merge** | Conflict detection plus two escape hatches: discard local changes, or pull again |
 
-Majority of our features are free and open source.
-We strive to strike a harmonious balance between [open-source principles and sustainability](https://github.com/usebruno/bruno/discussions/269)
+### Initialize Git
 
-You can explore our [paid versions](https://www.usebruno.com/pricing) to see if there are additional features that you or your team may find useful! <br/>
+A collection outside a repository shows an **Initialize Git** panel instead of a dead end. The form accepts an
+optional remote URL and branch, so a fresh repository can be connected to its upstream in one step
+(`git init` → `git remote add origin` → `git branch --set-upstream-to`). Leave both blank for a local-only
+repository.
 
-## Table of Contents
+The branch list is loaded from the remote URL. If it cannot be read — private repo, typo, offline — the field
+stays free-text so a branch name can still be typed.
 
-- [Installation](#installation)
-- [Bruno CLI](#bruno-cli)
-- [Run with Docker](#run-with-docker)
-- [Features](#features)
-  - [Run across multiple platforms 🖥️](#run-across-multiple-platforms-%EF%B8%8F)
-  - [Collaborate via Git 👩‍💻🧑‍💻](#collaborate-via-git-%E2%80%8D%E2%80%8D)
-- [Important Links 📌](#important-links-)
-- [Showcase 🎥](#showcase-)
-- [Share Testimonials 📣](#share-testimonials-)
-- [Publishing to New Package Managers](#publishing-to-new-package-managers)
-- [Stay in touch 🌐](#stay-in-touch-)
-- [Trademark](#trademark)
-- [Contribute 👩‍💻🧑‍💻](#contribute-%E2%80%8D%E2%80%8D)
-- [Authors](#authors)
-- [License 📄](#license-)
+### Disconnect Git
 
-## Installation
+Deletes the collection's `.git` directory to turn it back into a plain folder. Requires typing `REMOVE GIT` to
+confirm. Collection files are left untouched.
 
-Bruno is available as binary download [on our website](https://www.usebruno.com/downloads) for Mac, Windows and Linux.
+Only the resolved repository root's `.git` is removed, never a parent repository's, so a collection nested
+inside a larger repo cannot destroy that repo's history.
 
-You can also install Bruno via package managers like Homebrew, Chocolatey, Scoop, Snap, Flatpak and Apt.
+## Not implemented
 
-```sh
-# On Mac via Homebrew
-brew install bruno
+- **Three-way merge editor and per-hunk conflict resolution.** Conflict *detection* works, and the Merge tab
+  offers discard-local and pull. Composing merged content by hand is not built.
+- **Fetch UI** and **commit history / graph UI.** The backend functions exist but are not wired.
+- **Rebranding of the `bruno://` protocol.** It is tied to upstream's OAuth2 callback host.
 
-# On Windows via Chocolatey
-choco install bruno
+## Differences from upstream Bruno
 
-# On Windows via Scoop
-scoop bucket add extras
-scoop install bruno
+| | Upstream Bruno | Bruno Plus |
+| --- | --- | --- |
+| App name | `Bruno` | `Bruno Plus` |
+| Package name | `bruno` | `brunoplus` |
+| App data directory | `…/bruno` | `…/brunoplus` |
+| Default collection location | `~/Documents/bruno` | `~/Documents/brunoplus` |
+| Git UI | not in the open-source edition | included |
+| Dependabot | enabled | removed |
 
-# On Windows via winget
-winget install Bruno.Bruno
+Because the data directory changed, **existing Bruno data is not picked up automatically**. Bruno Plus starts
+fresh. To move your data over, quit the app and rename the folders:
 
-# On Linux via Snap
-snap install bruno
-
-# On Linux via Flatpak
-flatpak install com.usebruno.Bruno
-
-# On Arch Linux via AUR
-yay -S bruno
-
-# On Linux via Apt
-sudo mkdir -p /etc/apt/keyrings
-sudo apt update && sudo apt install gpg curl
-curl -fsSL "https://keyserver.ubuntu.com/pks/lookup?op=get&search=0x9FA6017ECABE0266" \
-  | gpg --dearmor \
-  | sudo tee /etc/apt/keyrings/bruno.gpg > /dev/null
-sudo chmod 644 /etc/apt/keyrings/bruno.gpg
-echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/bruno.gpg] http://debian.usebruno.com/ bruno stable" \
-  | sudo tee /etc/apt/sources.list.d/bruno.list
-sudo apt update && sudo apt install bruno
+```bash
+mv ~/Library/Application\ Support/bruno ~/Library/Application\ Support/brunoplus   # macOS
+mv ~/Documents/bruno ~/Documents/brunoplus
 ```
 
-## Bruno CLI
+## Requirements
 
-The **Bruno CLI** lets you run your API collections from the command line, which is ideal for automated testing and CI/CD pipelines. Install it from npm using the package manager of your choice:
+- Node.js **22** (see `.nvmrc`). Node 24 breaks the test suite: the native `canvas` dependency used by
+  `jest-environment-jsdom` fails to build, which takes down every renderer test.
+- Git installed and available on `PATH`.
 
-```sh
-npm install -g @usebruno/cli
+## Run from source
+
+```bash
+nvm use 22
+npm install
+npm run setup        # builds the workspace packages the app depends on
+npm run dev          # Electron + renderer with hot reload
 ```
 
-Navigate to the directory containing your collection and run it:
+When running via `npm run dev` the macOS dock shows "Electron", not "Bruno Plus" — that name comes from the
+`.app` bundle being executed. `productName` only applies to packaged builds.
 
-```sh
-# Run every request in the collection
-bru run
+## Build locally (macOS)
 
-# Run a single request
-bru run request.bru
+Packaging needs three adjustments before it will run on a machine that does not hold upstream's Apple
+credentials. In `packages/bruno-electron/electron-builder-config.js`:
 
-# Run a folder against a specific environment
-bru run folder --env Local
+```js
+afterSign: undefined,   // was 'notarize.js' — notarization needs upstream's Apple ID
+mac: {
+  identity: null,       // was 'Anoop MD (W7LPPWA48L)' — upstream's signing certificate
+  hardenedRuntime: false,
+}
 ```
 
-For the full command reference, see the [Bruno CLI documentation](https://docs.usebruno.com/bru-cli/overview).
+Then:
 
-## Run with Docker
-
-Official Docker images for the **Bruno CLI** let you run API collections in CI/CD pipelines and locally without installing Node.js or npm on the host. Images are published to both [Docker Hub](https://hub.docker.com/r/usebruno/cli) and the [GitHub Container Registry](https://ghcr.io/usebruno/cli) on every CLI release, with `alpine` and `debian` variants for `linux/amd64` and `linux/arm64`.
-
-```sh
-# Pull from Docker Hub
-docker pull usebruno/cli:latest
-
-# Or pull from the GitHub Container Registry
-docker pull ghcr.io/usebruno/cli:latest
-
-# Run a collection by mounting the current directory
-docker run -v $(pwd):/bruno usebruno/cli run
+```bash
+nvm use 22
+npm run build:web             # renderer bundle, required before packaging
+npm run build:electron:mac    # or ./scripts/build-electron.sh mac
 ```
 
-For variants, tag matrix, environment files, and CI examples (GitHub Actions, GitLab CI, Jenkins), see the full [Bruno CLI Docker documentation](https://docs.usebruno.com/bru-cli/docker).
+Output lands in `packages/bruno-electron/out/`:
 
-## Features
+```
+out/
+├── Bruno Plus-<version>-arm64.dmg
+├── Bruno Plus-<version>-arm64-mac.zip
+└── mac-arm64/Bruno Plus.app
+```
 
-### Run across multiple platforms 🖥️
+The build is unsigned, so the first launch needs **right-click → Open** to get past Gatekeeper. Do not commit
+the three config changes above — they point at credentials only upstream has.
 
-![bruno](assets/images/run-anywhere.png) <br /><br />
+## Tests
 
-### Collaborate via Git 👩‍💻🧑‍💻
+```bash
+npm test --workspace=packages/bruno-app
+npm test --workspace=packages/bruno-electron
+npm run lint
+```
 
-Or any version control system of your choice
+## Upstream
 
-![bruno](assets/images/version-control.png) <br /><br />
+Base: `usebruno/bruno` at `main` (`71c9d52`), which is 48 commits ahead of the `v4.3.0` release tag. Version
+numbers here mirror `v4.3.0`, the latest release at the time of forking.
 
-## Important Links 📌
+Sync with upstream:
 
-- [Our Long Term Vision](https://github.com/usebruno/bruno/discussions/269)
-- [Roadmap](https://www.usebruno.com/roadmap)
-- [Documentation](https://docs.usebruno.com)
-- [Stack Overflow](https://stackoverflow.com/questions/tagged/bruno)
-- [Website](https://www.usebruno.com)
-- [Pricing](https://www.usebruno.com/pricing)
-- [Download](https://www.usebruno.com/downloads)
+```bash
+git fetch upstream
+git merge upstream/main
+```
 
-## Showcase 🎥
+## License and trademark
 
-- [Testimonials](https://github.com/usebruno/bruno/discussions/343)
-- [Knowledge Hub](https://github.com/usebruno/bruno/discussions/386)
-- [Scriptmania](https://github.com/usebruno/bruno/discussions/385)
+Bruno is MIT licensed — see [license.md](license.md). The copyright notice is preserved; nothing here
+restricts redistribution or modification.
 
-## Share Testimonials 📣
+`Bruno` is a trademark held by [Anoop M D](https://www.helloanoop.com/), which is separate from the code
+license. This fork is named **Bruno Plus** to stay clearly distinct.
 
-If Bruno has helped you at work and your teams, please don't forget to share your [testimonials on our GitHub discussion](https://github.com/usebruno/bruno/discussions/343)
+## Credit
 
-## Publishing to New Package Managers
+Essentially all of the application is upstream Bruno and its contributors. This fork adds the git interface
+described above.
 
-Please see [here](publishing.md) for more information.
-
-## Stay in touch 🌐
-
-[𝕏 (Twitter)](https://twitter.com/use_bruno) <br />
-[Website](https://www.usebruno.com) <br />
-[Discord](https://discord.com/invite/KgcZUncpjq) <br />
-[LinkedIn](https://www.linkedin.com/company/usebruno)
-
-## Trademark
-
-**Name**
-
-`Bruno` is a trademark held by [Anoop M D](https://www.helloanoop.com/)
-
-**Logo**
-
-The logo is sourced from [OpenMoji](https://openmoji.org/library/emoji-1F436/). License: CC [BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/)
-
-## Contribute 👩‍💻🧑‍💻
-
-I am happy that you are looking to improve bruno. Please check out the [contributing guide](contributing.md)
-
-Even if you are not able to make contributions via code, please don't hesitate to file bugs and feature requests that needs to be implemented to solve your use case.
-
-## Authors
-
-<div align="center">
-    <a href="https://github.com/usebruno/bruno/graphs/contributors">
-        <img src="https://contrib.rocks/image?repo=usebruno/bruno" />
-    </a>
-</div>
-
-## License 📄
-
-[MIT](license.md)
+- Upstream: <https://github.com/usebruno/bruno>
+- Upstream docs: <https://docs.usebruno.com>
