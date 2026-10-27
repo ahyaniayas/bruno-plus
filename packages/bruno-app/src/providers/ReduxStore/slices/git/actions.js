@@ -34,8 +34,21 @@ export const loadRepoData = (collectionUid, collectionPath) => async (dispatch) 
     );
     return data;
   } catch (error) {
-    // "not part of a git repository" is expected for plain folders.
+    // "not part of a git repository" is expected for plain folders. Clear the
+    // whole repo view: leaving the old branch list behind would keep showing
+    // branches for a repo that no longer exists.
     dispatch(setRepoResolved({ collectionUid, gitRootPath: null }));
+    dispatch(
+      setRepoData({
+        collectionUid,
+        currentBranch: '',
+        branches: [],
+        remoteUrl: '',
+        mergeInProgress: false
+      })
+    );
+    dispatch(setRepoStatus({ collectionUid, staged: [], unstaged: [], conflicted: [] }));
+    dispatch(setStashes({ collectionUid, stashes: [] }));
     return null;
   }
 };
@@ -161,10 +174,10 @@ export const discardConflict = (collectionUid, collectionPath) =>
  * Turn the collection into a git repository. After init the panel must
  * re-resolve the repo root, so this refreshes rather than patching state.
  */
-export const initRepo = (collectionUid, collectionPath) => async (dispatch) => {
+export const initRepo = (collectionUid, collectionPath, { remoteUrl, branch } = {}) => async (dispatch) => {
   dispatch(setRepoError({ collectionUid, error: null }));
   try {
-    const result = await invoke('renderer:git-init', { collectionPath });
+    const result = await invoke('renderer:git-init', { collectionPath, remoteUrl, branch });
     await dispatch(refreshRepo(collectionUid, collectionPath));
     return result;
   } catch (error) {
@@ -172,6 +185,24 @@ export const initRepo = (collectionUid, collectionPath) => async (dispatch) => {
     dispatch(setRepoError({ collectionUid, error: message }));
     throw error;
   }
+};
+
+export const setRemote = (collectionUid, collectionPath, remoteUrl) => async (dispatch) => {
+  dispatch(setRepoError({ collectionUid, error: null }));
+  try {
+    const result = await invoke('renderer:git-set-remote', { collectionPath, remoteUrl });
+    await dispatch(refreshRepo(collectionUid, collectionPath));
+    return result;
+  } catch (error) {
+    const message = errorMessage(error, 'Failed to update remote');
+    dispatch(setRepoError({ collectionUid, error: message }));
+    throw error;
+  }
+};
+
+export const getRemotes = (collectionPath) => async () => {
+  const { remotes } = await invoke('renderer:git-get-remotes', { collectionPath });
+  return remotes || [];
 };
 
 /**

@@ -17,6 +17,9 @@ jest.mock('../utils/git', () => ({
   getCollectionGitRootPath: jest.fn(),
   invalidateCollectionGitRootPath: jest.fn(),
   initGit: jest.fn(),
+  addRemote: jest.fn(),
+  removeRemote: jest.fn(),
+  fetchRemotes: jest.fn(),
   getCollectionGitBranches: jest.fn(),
   getCurrentGitBranch: jest.fn(),
   getDefaultGitBranch: jest.fn(),
@@ -52,6 +55,8 @@ const {
   handleGetCollectionGitData,
   handleInitRepo,
   handleRemoveGitDir,
+  handleSetRemote,
+  handleGetRemotes,
   handleGetStatus,
   handleStage,
   handleUnstage,
@@ -342,6 +347,78 @@ describe('handleRemoveGitDir', () => {
 
   it('rejects a missing collection path', async () => {
     await expect(handleRemoveGitDir(null, {})).rejects.toThrow('Collection path is required');
+  });
+});
+
+describe('handleSetRemote', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    gitUtils.getCollectionGitRootPath.mockReturnValue(REPO);
+  });
+
+  it('adds origin when none exists', async () => {
+    gitUtils.fetchRemotes.mockResolvedValue([]);
+
+    const result = await handleSetRemote(null, {
+      collectionPath: COLLECTION,
+      remoteUrl: 'https://github.com/org/repo.git'
+    });
+
+    expect(gitUtils.addRemote).toHaveBeenCalledWith({
+      gitRootPath: REPO,
+      remoteName: 'origin',
+      remoteUrl: 'https://github.com/org/repo.git'
+    });
+    expect(result).toEqual({ success: true, remoteUrl: 'https://github.com/org/repo.git' });
+  });
+
+  it('removes origin when the url is cleared', async () => {
+    gitUtils.fetchRemotes.mockResolvedValue([{ name: 'origin' }]);
+
+    const result = await handleSetRemote(null, { collectionPath: COLLECTION, remoteUrl: '' });
+
+    expect(gitUtils.removeRemote).toHaveBeenCalledWith({ gitRootPath: REPO, remoteName: 'origin' });
+    expect(gitUtils.addRemote).not.toHaveBeenCalled();
+    expect(result).toEqual({ success: true, remoteUrl: '' });
+  });
+
+  it('is a no-op when clearing a remote that does not exist', async () => {
+    gitUtils.fetchRemotes.mockResolvedValue([]);
+
+    await handleSetRemote(null, { collectionPath: COLLECTION, remoteUrl: '' });
+
+    expect(gitUtils.removeRemote).not.toHaveBeenCalled();
+  });
+
+  it('rejects a collection that is not a repo', async () => {
+    gitUtils.getCollectionGitRootPath.mockReturnValue(null);
+
+    await expect(
+      handleSetRemote(null, { collectionPath: COLLECTION, remoteUrl: 'https://x/y.git' })
+    ).rejects.toThrow('Collection is not part of a git repository');
+  });
+});
+
+describe('handleGetRemotes', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    gitUtils.getCollectionGitRootPath.mockReturnValue(REPO);
+  });
+
+  it('maps remotes to name and url', async () => {
+    gitUtils.fetchRemotes.mockResolvedValue([
+      { name: 'origin', refs: { push: 'https://github.com/org/repo.git', fetch: 'https://github.com/org/repo.git' } }
+    ]);
+
+    expect(await handleGetRemotes(null, { collectionPath: COLLECTION })).toEqual({
+      remotes: [{ name: 'origin', url: 'https://github.com/org/repo.git' }]
+    });
+  });
+
+  it('returns an empty list when there are no remotes', async () => {
+    gitUtils.fetchRemotes.mockResolvedValue([]);
+
+    expect(await handleGetRemotes(null, { collectionPath: COLLECTION })).toEqual({ remotes: [] });
   });
 });
 

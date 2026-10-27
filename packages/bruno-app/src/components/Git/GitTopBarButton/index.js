@@ -1,9 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import toast from 'react-hot-toast';
-import { IconBrandGit, IconCheck, IconChevronDown, IconPlugOff, IconPlus } from '@tabler/icons';
+import { IconBrandGit, IconCheck, IconChevronDown, IconPlugOff } from '@tabler/icons';
 import MenuDropdown from 'ui/MenuDropdown';
-import { checkoutBranch, createBranch, loadRepoData } from 'providers/ReduxStore/slices/git/actions';
+import { checkoutBranch, loadRepoData } from 'providers/ReduxStore/slices/git/actions';
 import RemoveGitDirModal from './RemoveGitDirModal';
 
 /**
@@ -45,20 +45,6 @@ const GitTopBarButton = ({ collectionUid, collectionPath, onOpenPanel }) => {
     }
   };
 
-  const handleCreate = async () => {
-    const name = window.prompt('New branch name');
-    if (!name || !name.trim()) return;
-    setBusy(true);
-    try {
-      await dispatch(createBranch(collectionUid, collectionPath, name.trim()));
-      toast.success(`Switched to ${name.trim()}`);
-    } catch (error) {
-      toast.error(error?.message || 'Failed to create branch');
-    } finally {
-      setBusy(false);
-    }
-  };
-
   const branchItems = (repo?.branches || []).map((branch) => ({
     id: `branch-${branch}`,
     label: branch,
@@ -68,13 +54,6 @@ const GitTopBarButton = ({ collectionUid, collectionPath, onOpenPanel }) => {
 
   const items = [
     ...branchItems,
-    ...(branchItems.length ? [{ id: 'divider-branch', type: 'divider' }] : []),
-    {
-      id: 'create-branch',
-      label: 'Create branch…',
-      leftSection: <IconPlus size={13} strokeWidth={1.5} />,
-      onClick: handleCreate
-    },
     ...(isRepo
       ? [
           { id: 'divider-repo', type: 'divider' },

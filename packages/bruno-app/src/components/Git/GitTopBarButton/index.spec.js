@@ -142,8 +142,19 @@ describe('GitTopBarButton — menu', () => {
 
     fireEvent.click(screen.getByTestId('git-topbar-caret-btn'));
 
-    await screen.findByText('Create branch…');
-    expect(screen.queryByText('Disconnect Git')).not.toBeInTheDocument();
+    // Wait for the menu to mount, then assert the repo-only action is absent.
+    await waitFor(() => {
+      expect(screen.queryByText('Disconnect Git')).not.toBeInTheDocument();
+    });
+  });
+
+  it('does not offer Create branch in the menu', async () => {
+    await renderButton(TRACKED);
+
+    fireEvent.click(screen.getByTestId('git-topbar-caret-btn'));
+
+    await screen.findByText('Disconnect Git');
+    expect(screen.queryByText('Create branch…')).not.toBeInTheDocument();
   });
 
   it('resolves repo data on mount so the branch shows without opening the panel', async () => {

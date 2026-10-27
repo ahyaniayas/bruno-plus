@@ -143,16 +143,38 @@ describe('GitPanel', () => {
 
     expect(screen.getByTestId('git-init-empty-state')).toBeInTheDocument();
     expect(screen.getByText('Initialize Git Repository')).toBeInTheDocument();
-    expect(screen.getByTestId('git-init-btn')).toBeInTheDocument();
+    expect(screen.getByTestId('git-init-form')).toBeInTheDocument();
   });
 
-  it('initializes the repository when the button is clicked', async () => {
+  it('initializes a local-only repository when submitted empty', async () => {
     await renderPanel({ gitRootPath: null });
 
-    fireEvent.click(screen.getByTestId('git-init-btn'));
+    fireEvent.click(screen.getByTestId('git-config-submit-btn'));
 
     await waitFor(() => {
-      expect(window.ipcRenderer.invoke).toHaveBeenCalledWith('renderer:git-init', { collectionPath: PATH });
+      expect(window.ipcRenderer.invoke).toHaveBeenCalledWith('renderer:git-init', {
+        collectionPath: PATH,
+        remoteUrl: '',
+        branch: ''
+      });
+    });
+  });
+
+  it('initializes with a remote and branch when provided', async () => {
+    await renderPanel({ gitRootPath: null });
+
+    fireEvent.change(screen.getByTestId('git-config-remote-input'), {
+      target: { value: 'https://github.com/org/repo.git' }
+    });
+    fireEvent.change(screen.getByTestId('git-config-branch-input'), { target: { value: 'main' } });
+    fireEvent.click(screen.getByTestId('git-config-submit-btn'));
+
+    await waitFor(() => {
+      expect(window.ipcRenderer.invoke).toHaveBeenCalledWith('renderer:git-init', {
+        collectionPath: PATH,
+        remoteUrl: 'https://github.com/org/repo.git',
+        branch: 'main'
+      });
     });
   });
 

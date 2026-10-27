@@ -8,6 +8,11 @@ const {
   getCollectionGitRootPath,
   invalidateCollectionGitRootPath,
   initGit,
+  addRemote,
+  removeRemote,
+  fetchRemotes,
+  setRemoteUrl,
+  setUpstreamBranch,
   getCollectionGitBranches,
   getCurrentGitBranch,
   getDefaultGitBranch,
@@ -308,7 +313,7 @@ const handleDiscardConflict = async (event, { collectionPath } = {}) => {
  * collection becomes the repository root. `initGit` also renames the initial
  * branch to `main`.
  */
-const handleInitRepo = async (event, { collectionPath } = {}) => {
+const handleInitRepo = async (event, { collectionPath, remoteUrl, branch } = {}) => {
   const targetPath = requireCollectionPath(collectionPath);
 
   // Already inside a repo: nothing to do, and re-initialising would nest one.
@@ -323,7 +328,62 @@ const handleInitRepo = async (event, { collectionPath } = {}) => {
   invalidateCollectionGitRootPath(targetPath);
 
   const gitRootPath = resolveGitRootPath(targetPath);
+
+  // Optional remote + branch, so a fresh repo can be pointed at its upstream in
+  // the same step instead of leaving the user to run git by hand.
+  const remote = typeof remoteUrl === 'string' ? remoteUrl.trim() : '';
+  if (remote) {
+    await addRemote({ gitRootPath, remoteName: 'origin', remoteUrl: remote });
+
+    const targetBranch = typeof branch === 'string' ? branch.trim() : '';
+    if (targetBranch) {
+      // Track the remote branch without switching the working tree.
+      await setUpstreamBranch(gitRootPath, 'main', targetBranch).catch(() => {});
+    }
+  }
+
   return { success: true, gitRootPath, alreadyInitialized: false };
+};
+
+/**
+ * Set or clear the origin remote of an existing repository. An empty URL
+ * removes it, which is how the Config tab lets a repo go local-only again.
+ */
+const handleSetRemote = async (event, { collectionPath, remoteUrl } = {}) => {
+  const gitRootPath = resolveGitRootPath(collectionPath);
+  const url = typeof remoteUrl === 'string' ? remoteUrl.trim() : '';
+
+  const remotes = await fetchRemotes(gitRootPath).catch(() => []);
+  const hasOrigin = remotes.some((remote) => remote.name === 'origin');
+
+  if (!url) {
+    if (hasOrigin) {
+      await removeRemote({ gitRootPath, remoteName: 'origin' });
+    }
+    return { success: true, remoteUrl: '' };
+  }
+
+  if (hasOrigin) {
+    await setRemoteUrl(gitRootPath, 'origin', url);
+  } else {
+    await addRemote({ gitRootPath, remoteName: 'origin', remoteUrl: url });
+  }
+
+  return { success: true, remoteUrl: url };
+};
+
+/**
+ * Remote list for the Config tab.
+ */
+const handleGetRemotes = async (event, { collectionPath } = {}) => {
+  const gitRootPath = resolveGitRootPath(collectionPath);
+  const remotes = await fetchRemotes(gitRootPath).catch(() => []);
+  return {
+    remotes: remotes.map((remote) => ({
+      name: remote.name,
+      url: remote.refs?.push || remote.refs?.fetch || ''
+    }))
+  };
 };
 
 /**
@@ -376,6 +436,8 @@ const registerGitIpc = (mainWindow) => {
   ipcMain.handle('renderer:git-get-data', handleGetCollectionGitData);
   ipcMain.handle('renderer:git-init', handleInitRepo);
   ipcMain.handle('renderer:git-remove-git-dir', handleRemoveGitDir);
+  ipcMain.handle('renderer:git-set-remote', handleSetRemote);
+  ipcMain.handle('renderer:git-get-remotes', handleGetRemotes);
   ipcMain.handle('renderer:git-get-status', handleGetStatus);
   ipcMain.handle('renderer:git-stage', handleStage);
   ipcMain.handle('renderer:git-unstage', handleUnstage);
@@ -398,6 +460,8 @@ module.exports.handleListRemoteBranches = handleListRemoteBranches;
 module.exports.handleGetCollectionGitData = handleGetCollectionGitData;
 module.exports.handleInitRepo = handleInitRepo;
 module.exports.handleRemoveGitDir = handleRemoveGitDir;
+module.exports.handleSetRemote = handleSetRemote;
+module.exports.handleGetRemotes = handleGetRemotes;
 module.exports.handleGetStatus = handleGetStatus;
 module.exports.handleStage = handleStage;
 module.exports.handleUnstage = handleUnstage;

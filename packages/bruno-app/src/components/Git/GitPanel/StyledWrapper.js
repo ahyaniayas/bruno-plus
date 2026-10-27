@@ -410,6 +410,79 @@ const StyledWrapper = styled.div`
     color: ${(props) => props.theme.colors.text.subtext1};
     max-width: 260px;
   }
+
+  .git-config-form {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    width: 100%;
+    text-align: left;
+  }
+
+  .git-config-label {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: ${(props) => props.theme.colors.text.subtext1};
+    margin-top: 4px;
+  }
+
+  .git-config-row {
+    display: flex;
+    gap: 4px;
+    align-items: center;
+  }
+
+  .git-config-hint {
+    font-size: 10px;
+    color: ${(props) => props.theme.status.warning.text};
+    line-height: 1.4;
+  }
+
+  .git-config-meta {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    margin-bottom: 4px;
+  }
+
+  .git-pull-option {
+    display: flex;
+    gap: 8px;
+    align-items: flex-start;
+    padding: 8px;
+    border: 1px solid ${(props) => props.theme.border.border1};
+    border-radius: ${(props) => props.theme.border.radius.sm};
+    cursor: pointer;
+    margin-bottom: 6px;
+
+    &:hover {
+      background: ${(props) => props.theme.background.surface0};
+    }
+
+    input {
+      margin-top: 2px;
+      accent-color: ${(props) => props.theme.primary.solid};
+    }
+  }
+
+  .git-pull-option-body {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+  }
+
+  .git-pull-option-label {
+    font-weight: 500;
+    color: ${(props) => props.theme.text};
+  }
+
+  .git-pull-option-desc {
+    font-size: 10px;
+    line-height: 1.4;
+    color: ${(props) => props.theme.colors.text.subtext1};
+  }
 `;
 
 export default StyledWrapper;

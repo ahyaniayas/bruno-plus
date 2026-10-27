@@ -8,12 +8,16 @@ import ChangesTab from './ChangesTab';
 import StashTab from './StashTab';
 import BranchTab from './BranchTab';
 import ConflictTab from './ConflictTab';
+import PullTab from './PullTab';
+import ConfigTab from './ConfigTab';
 import InitRepoEmptyState from './InitRepoEmptyState';
 
 const TABS = [
   { id: 'changes', label: 'Changes' },
+  { id: 'pull', label: 'Pull' },
   { id: 'stash', label: 'Stash' },
   { id: 'branch', label: 'Branch' },
+  { id: 'config', label: 'Config' },
   { id: 'conflict', label: 'Merge' }
 ];
 
@@ -59,10 +63,14 @@ const GitPanel = ({ collectionUid, collectionPath }) => {
 
   const renderTab = () => {
     switch (activeTab) {
+      case 'pull':
+        return <PullTab collectionUid={collectionUid} collectionPath={collectionPath} repo={repo} />;
       case 'stash':
         return <StashTab collectionUid={collectionUid} collectionPath={collectionPath} repo={repo} />;
       case 'branch':
         return <BranchTab collectionUid={collectionUid} collectionPath={collectionPath} repo={repo} />;
+      case 'config':
+        return <ConfigTab collectionUid={collectionUid} collectionPath={collectionPath} repo={repo} />;
       case 'conflict':
         return <ConflictTab collectionUid={collectionUid} collectionPath={collectionPath} repo={repo} />;
       case 'changes':

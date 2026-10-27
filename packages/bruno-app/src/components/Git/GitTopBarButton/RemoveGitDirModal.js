@@ -1,15 +1,47 @@
 import React, { useState } from 'react';
 import { useDispatch } from 'react-redux';
 import toast from 'react-hot-toast';
+import styled from 'styled-components';
 import Modal from 'components/Modal';
 import { removeGitDir } from 'providers/ReduxStore/slices/git/actions';
+
+const CONFIRM_PHRASE = 'REMOVE GIT';
+
+/**
+ * The confirm input cannot rely on the app's generic text input styling: the
+ * dark theme sets `input.bg` to transparent, which leaves the field light on a
+ * dark modal. Use the modal's own surface tokens so it reads correctly in both
+ * themes.
+ */
+const ConfirmInput = styled.input`
+  width: 100%;
+  padding: 6px 8px;
+  font-size: ${(props) => props.theme.font.size.sm};
+  font-family: inherit;
+  color: ${(props) => props.theme.text};
+  background: ${(props) => props.theme.modal.inputBg || props.theme.background.surface0};
+  border: 1px solid ${(props) => props.theme.border.border2};
+  border-radius: ${(props) => props.theme.border.radius.sm};
+  outline: none;
+
+  &::placeholder {
+    color: ${(props) => props.theme.colors.text.subtext0};
+  }
+
+  &:focus {
+    border-color: ${(props) => props.theme.primary.solid};
+  }
+
+  &:disabled {
+    opacity: 0.6;
+  }
+`;
 
 const RemoveGitDirModal = ({ collectionUid, collectionPath, onClose }) => {
   const dispatch = useDispatch();
   const [confirmation, setConfirmation] = useState('');
   const [busy, setBusy] = useState(false);
 
-  const CONFIRM_PHRASE = 'REMOVE GIT';
   const canConfirm = confirmation.trim() === CONFIRM_PHRASE && !busy;
 
   const handleConfirm = async () => {
@@ -46,10 +78,8 @@ const RemoveGitDirModal = ({ collectionUid, collectionPath, onClose }) => {
         <label htmlFor="git-remove-confirm" style={{ display: 'block', marginBottom: 6, fontWeight: 500 }}>
           Type <strong>{CONFIRM_PHRASE}</strong> to confirm
         </label>
-        <input
+        <ConfirmInput
           id="git-remove-confirm"
-          className="git-text-input"
-          style={{ width: '100%' }}
           value={confirmation}
           onChange={(event) => setConfirmation(event.target.value)}
           placeholder={CONFIRM_PHRASE}

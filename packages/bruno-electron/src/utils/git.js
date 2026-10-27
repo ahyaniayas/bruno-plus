@@ -794,6 +794,27 @@ const listBranchesForRemoteUrl = async ({ url }) => {
   }
 };
 
+/**
+ * Point a local branch at a remote branch, fetching first.
+ *
+ * Used right after `git init` + `addRemote` so the fresh repo tracks its
+ * upstream without the user running git by hand. Failures are non-fatal: the
+ * repo is still usable, it just has no upstream configured.
+ */
+const setUpstreamBranch = async (gitRootPath, localBranch, remoteBranch, remote = 'origin') => {
+  const git = getSimpleGitInstanceForPath(gitRootPath);
+  await git.raw(['fetch', remote, '--prune']).catch(() => {});
+  return git.raw(['branch', `--set-upstream-to=${remote}/${remoteBranch}`, localBranch]);
+};
+
+/**
+ * Change the URL of an existing remote.
+ */
+const setRemoteUrl = async (gitRootPath, remoteName, remoteUrl) => {
+  const git = getSimpleGitInstanceForPath(gitRootPath);
+  return git.raw(['remote', 'set-url', remoteName, remoteUrl]);
+};
+
 const fetchRemotes = (gitRootPath) => {
   return new Promise((resolve, reject) => {
     if (!gitRootPath) return resolve([]);
@@ -1861,6 +1882,8 @@ module.exports = {
   parseRemoteBranches,
   fetchChanges,
   fetchRemotes,
+  setRemoteUrl,
+  setUpstreamBranch,
   fetchRemoteBranches,
   checkoutRemoteGitBranch,
   getGitVersion,
