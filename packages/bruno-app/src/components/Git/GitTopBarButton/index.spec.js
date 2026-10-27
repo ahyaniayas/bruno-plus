@@ -15,9 +15,7 @@ const PATH = '/repo/collection';
 const renderButton = async (repo) => {
   const store = configureStore({
     reducer: { git: gitReducer },
-    preloadedState: repo
-      ? { git: { repos: { [UID]: { isRepoResolved: true, ...repo } } } }
-      : undefined
+    preloadedState: repo ? { git: { repos: { [UID]: { isRepoResolved: true, ...repo } } } } : undefined
   });
 
   const onOpenPanel = jest.fn();
@@ -36,6 +34,8 @@ const renderButton = async (repo) => {
 
   return { ...result, store, onOpenPanel };
 };
+
+const TRACKED = { gitRootPath: '/repo', currentBranch: 'main', branches: ['main', 'dev'] };
 
 beforeEach(() => {
   window.ipcRenderer = {
@@ -60,39 +60,64 @@ beforeEach(() => {
   };
 });
 
-describe('GitTopBarButton', () => {
+describe('GitTopBarButton — two separate controls', () => {
+  it('renders a label button and a separate caret button', async () => {
+    await renderButton(TRACKED);
+
+    expect(screen.getByTestId('git-topbar-open-btn')).toBeInTheDocument();
+    expect(screen.getByTestId('git-topbar-caret-btn')).toBeInTheDocument();
+  });
+
+  it('opens the panel from the label button', async () => {
+    const { onOpenPanel } = await renderButton(TRACKED);
+
+    fireEvent.click(screen.getByTestId('git-topbar-open-btn'));
+
+    expect(onOpenPanel).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not open the panel from the caret button', async () => {
+    const { onOpenPanel } = await renderButton(TRACKED);
+
+    fireEvent.click(screen.getByTestId('git-topbar-caret-btn'));
+
+    expect(onOpenPanel).not.toHaveBeenCalled();
+  });
+});
+
+describe('GitTopBarButton — label', () => {
   it('shows the plain label when the collection is not a repo', async () => {
     await renderButton({ gitRootPath: null, currentBranch: '', branches: [] });
 
-    expect(screen.getByTestId('git-topbar-btn')).toHaveTextContent('Git Plus');
+    expect(screen.getByTestId('git-topbar-open-btn')).toHaveTextContent('Git Plus');
   });
 
   it('appends the current branch once tracked', async () => {
-    await renderButton({ gitRootPath: '/repo', currentBranch: 'main', branches: ['main', 'dev'] });
+    await renderButton(TRACKED);
 
-    expect(screen.getByTestId('git-topbar-btn')).toHaveTextContent('Git Plus - main');
+    expect(screen.getByTestId('git-topbar-open-btn')).toHaveTextContent('Git Plus - main');
   });
 
-  it('shows the label without a branch when the branch is unknown', async () => {
+  it('omits the branch suffix when the branch is unknown', async () => {
     await renderButton({ gitRootPath: '/repo', currentBranch: '', branches: [] });
 
-    expect(screen.getByTestId('git-topbar-btn')).toHaveTextContent('Git Plus');
+    expect(screen.getByTestId('git-topbar-open-btn')).toHaveTextContent('Git Plus');
   });
+});
 
-  it('opens the dropdown with the branch list', async () => {
-    await renderButton({ gitRootPath: '/repo', currentBranch: 'main', branches: ['main', 'dev'] });
+describe('GitTopBarButton — menu', () => {
+  it('lists branches in the dropdown', async () => {
+    await renderButton(TRACKED);
 
-    fireEvent.click(screen.getByTestId('git-topbar-btn'));
+    fireEvent.click(screen.getByTestId('git-topbar-caret-btn'));
 
-    await waitFor(() => {
-      expect(screen.getByText('dev')).toBeInTheDocument();
-    });
+    expect(await screen.findByText('dev')).toBeInTheDocument();
   });
 
   it('switches branch through IPC', async () => {
-    await renderButton({ gitRootPath: '/repo', currentBranch: 'main', branches: ['main', 'dev'] });
+    await renderButton(TRACKED);
 
-    fireEvent.click(screen.getByTestId('git-topbar-btn'));
+    fireEvent.click(screen.getByTestId('git-topbar-caret-btn'));
     fireEvent.click(await screen.findByText('dev'));
 
     await waitFor(() => {
@@ -104,9 +129,74 @@ describe('GitTopBarButton', () => {
     });
   });
 
+  it('offers Disconnect Git only for a tracked collection', async () => {
+    await renderButton(TRACKED);
+
+    fireEvent.click(screen.getByTestId('git-topbar-caret-btn'));
+
+    expect(await screen.findByText('Disconnect Git')).toBeInTheDocument();
+  });
+
+  it('hides Disconnect Git when the collection is not a repo', async () => {
+    await renderButton({ gitRootPath: null, currentBranch: '', branches: [] });
+
+    fireEvent.click(screen.getByTestId('git-topbar-caret-btn'));
+
+    await screen.findByText('Create branch…');
+    expect(screen.queryByText('Disconnect Git')).not.toBeInTheDocument();
+  });
+
   it('resolves repo data on mount so the branch shows without opening the panel', async () => {
     await renderButton(null);
 
     expect(window.ipcRenderer.invoke).toHaveBeenCalledWith('renderer:git-get-data', { collectionPath: PATH });
+  });
+});
+
+describe('GitTopBarButton — Disconnect Git', () => {
+  const openDialog = async () => {
+    fireEvent.click(screen.getByTestId('git-topbar-caret-btn'));
+    fireEvent.click(await screen.findByText('Disconnect Git'));
+    return screen.findByTestId('git-remove-dialog-body');
+  };
+
+  it('opens a confirmation dialog', async () => {
+    await renderButton(TRACKED);
+
+    expect(await openDialog()).toBeInTheDocument();
+  });
+
+  it('keeps the confirm button disabled until REMOVE GIT is typed', async () => {
+    await renderButton(TRACKED);
+    await openDialog();
+
+    const confirmButton = screen.getByTestId('git-remove-dialog-submit-btn');
+    expect(confirmButton).toBeDisabled();
+
+    fireEvent.change(screen.getByTestId('git-remove-confirm-input'), { target: { value: 'remove git' } });
+    expect(screen.getByTestId('git-remove-dialog-submit-btn')).toBeDisabled();
+  });
+
+  it('enables the confirm button for the exact phrase', async () => {
+    await renderButton(TRACKED);
+    await openDialog();
+
+    fireEvent.change(screen.getByTestId('git-remove-confirm-input'), { target: { value: 'REMOVE GIT' } });
+
+    expect(screen.getByTestId('git-remove-dialog-submit-btn')).toBeEnabled();
+  });
+
+  it('removes the .git directory through IPC once confirmed', async () => {
+    await renderButton(TRACKED);
+    await openDialog();
+
+    fireEvent.change(screen.getByTestId('git-remove-confirm-input'), { target: { value: 'REMOVE GIT' } });
+    fireEvent.click(screen.getByTestId('git-remove-dialog-submit-btn'));
+
+    await waitFor(() => {
+      expect(window.ipcRenderer.invoke).toHaveBeenCalledWith('renderer:git-remove-git-dir', {
+        collectionPath: PATH
+      });
+    });
   });
 });

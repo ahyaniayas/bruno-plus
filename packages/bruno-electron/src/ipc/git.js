@@ -1,4 +1,5 @@
 const path = require('path');
+const fs = require('fs');
 const { ipcMain } = require('electron');
 const {
   cloneGitRepository,
@@ -27,7 +28,6 @@ const {
   isMergeInProgress
 } = require('../utils/git');
 const { createDirectory, removeDirectory } = require('../utils/filesystem');
-
 const getCollectionGitRemoteUrl = async (collectionPath) => {
   try {
     const url = await getCollectionGitRepoUrl(collectionPath);
@@ -326,6 +326,30 @@ const handleInitRepo = async (event, { collectionPath } = {}) => {
   return { success: true, gitRootPath, alreadyInitialized: false };
 };
 
+/**
+ * Delete the `.git` directory for a collection, turning it back into a plain
+ * folder. Destructive: history, branches and stashes are gone.
+ *
+ * Only the repository root's `.git` is removed — never a parent repo's — so a
+ * collection nested inside a larger repo cannot nuke that repo's history.
+ */
+const handleRemoveGitDir = async (event, { collectionPath } = {}) => {
+  const targetPath = requireCollectionPath(collectionPath);
+  const gitRootPath = resolveGitRootPath(targetPath);
+  const gitDir = path.join(gitRootPath, '.git');
+
+  if (!fs.existsSync(gitDir)) {
+    throw new Error('No .git directory found for this collection');
+  }
+
+  // `removeDirectory` still calls the deprecated fs.rmdirSync({recursive}).
+  // Use fs.rm here so deleting a repo does not add deprecation noise.
+  await fs.promises.rm(gitDir, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
+  invalidateCollectionGitRootPath(targetPath);
+
+  return { success: true };
+};
+
 const registerGitIpc = (mainWindow) => {
   ipcMain.handle('renderer:clone-git-repository', async (event, { url, path: targetPath, processUid, branch }) => {
     let directoryCreated = false;
@@ -351,6 +375,7 @@ const registerGitIpc = (mainWindow) => {
   // Git panel: commit / stash / branch / conflict
   ipcMain.handle('renderer:git-get-data', handleGetCollectionGitData);
   ipcMain.handle('renderer:git-init', handleInitRepo);
+  ipcMain.handle('renderer:git-remove-git-dir', handleRemoveGitDir);
   ipcMain.handle('renderer:git-get-status', handleGetStatus);
   ipcMain.handle('renderer:git-stage', handleStage);
   ipcMain.handle('renderer:git-unstage', handleUnstage);
@@ -372,6 +397,7 @@ module.exports.getCollectionGitRemoteUrl = getCollectionGitRemoteUrl;
 module.exports.handleListRemoteBranches = handleListRemoteBranches;
 module.exports.handleGetCollectionGitData = handleGetCollectionGitData;
 module.exports.handleInitRepo = handleInitRepo;
+module.exports.handleRemoveGitDir = handleRemoveGitDir;
 module.exports.handleGetStatus = handleGetStatus;
 module.exports.handleStage = handleStage;
 module.exports.handleUnstage = handleUnstage;

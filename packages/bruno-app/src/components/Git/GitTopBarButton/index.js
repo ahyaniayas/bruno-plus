@@ -1,25 +1,29 @@
 import React, { useEffect, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import toast from 'react-hot-toast';
-import { IconBrandGit, IconCheck, IconChevronDown, IconPlus } from '@tabler/icons';
+import { IconBrandGit, IconCheck, IconChevronDown, IconPlugOff, IconPlus } from '@tabler/icons';
 import MenuDropdown from 'ui/MenuDropdown';
 import { checkoutBranch, createBranch, loadRepoData } from 'providers/ReduxStore/slices/git/actions';
+import RemoveGitDirModal from './RemoveGitDirModal';
 
 /**
  * Top-bar entry point for the Git panel.
  *
- * Label carries the current branch once the collection is tracked, and the
- * dropdown is the quick branch switcher. Creating a branch happens through a
- * prompt rather than a modal: it is a single text field.
+ * Two separate controls by design:
+ *  - the label is a plain button that opens the panel (the common action)
+ *  - the caret opens the menu for branch switching and repo-level actions
+ *
+ * Mixing both into one button made the primary action ambiguous.
  */
 const GitTopBarButton = ({ collectionUid, collectionPath, onOpenPanel }) => {
   const dispatch = useDispatch();
   const repo = useSelector((state) => state.git.repos[collectionUid]);
   const [busy, setBusy] = useState(false);
+  const [removeModalOpen, setRemoveModalOpen] = useState(false);
 
   const isRepo = !!repo?.gitRootPath;
   const currentBranch = repo?.currentBranch || '';
-  const label = isRepo ? `Git Plus - ${currentBranch || 'unknown'}` : 'Git Plus';
+  const label = isRepo && currentBranch ? `Git Plus - ${currentBranch}` : 'Git Plus';
 
   // Resolve once so the top bar can show the branch without opening the panel.
   useEffect(() => {
@@ -71,32 +75,55 @@ const GitTopBarButton = ({ collectionUid, collectionPath, onOpenPanel }) => {
       leftSection: <IconPlus size={13} strokeWidth={1.5} />,
       onClick: handleCreate
     },
-    {
-      id: 'open-panel',
-      label: 'Open Git Plus panel',
-      leftSection: <IconBrandGit size={13} strokeWidth={1.5} />,
-      onClick: onOpenPanel
-    }
+    ...(isRepo
+      ? [
+          { id: 'divider-repo', type: 'divider' },
+          {
+            id: 'disconnect-git',
+            label: 'Disconnect Git',
+            leftSection: <IconPlugOff size={13} strokeWidth={1.5} />,
+            onClick: () => setRemoveModalOpen(true)
+          }
+        ]
+      : [])
   ];
 
-  const button = (
-    <button
-      type="button"
-      className={`git-topbar-btn ${isRepo ? 'is-repo' : ''}`}
-      disabled={busy}
-      data-testid="git-topbar-btn"
-      title={isRepo ? `On branch ${currentBranch}` : 'Git Plus'}
-    >
-      <IconBrandGit size={14} strokeWidth={1.5} />
-      <span className="git-topbar-label">{label}</span>
-      <IconChevronDown size={13} strokeWidth={1.5} />
-    </button>
-  );
-
   return (
-    <MenuDropdown items={items} placement="bottom-end" data-testid="git-topbar-menu">
-      {button}
-    </MenuDropdown>
+    <>
+      <div className={`git-topbar-group ${isRepo ? 'is-repo' : ''}`} data-testid="git-topbar-group">
+        <button
+          type="button"
+          className="git-topbar-main"
+          disabled={busy}
+          onClick={onOpenPanel}
+          title={isRepo ? `Open Git Plus — on branch ${currentBranch}` : 'Open Git Plus'}
+          data-testid="git-topbar-open-btn"
+        >
+          <IconBrandGit size={14} strokeWidth={1.5} />
+          <span className="git-topbar-label">{label}</span>
+        </button>
+        <MenuDropdown items={items} placement="bottom-end" data-testid="git-topbar-menu">
+          <button
+            type="button"
+            className="git-topbar-caret"
+            disabled={busy}
+            title="Git actions"
+            aria-label="Git actions"
+            data-testid="git-topbar-caret-btn"
+          >
+            <IconChevronDown size={13} strokeWidth={1.5} />
+          </button>
+        </MenuDropdown>
+      </div>
+
+      {removeModalOpen && (
+        <RemoveGitDirModal
+          collectionUid={collectionUid}
+          collectionPath={collectionPath}
+          onClose={() => setRemoveModalOpen(false)}
+        />
+      )}
+    </>
   );
 };
 

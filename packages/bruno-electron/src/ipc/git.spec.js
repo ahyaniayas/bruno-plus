@@ -1,4 +1,15 @@
 jest.mock('electron', () => ({ ipcMain: { handle: jest.fn() } }));
+jest.mock('fs', () => {
+  const actual = jest.requireActual('fs');
+  return {
+    ...actual,
+    existsSync: jest.fn(),
+    promises: {
+      ...actual.promises,
+      rm: jest.fn()
+    }
+  };
+});
 jest.mock('../utils/git', () => ({
   cloneGitRepository: jest.fn(),
   getCollectionGitRepoUrl: jest.fn(),
@@ -31,13 +42,16 @@ jest.mock('../utils/filesystem', () => ({
   removeDirectory: jest.fn()
 }));
 
+const fs = require('fs');
 const path = require('path');
 const gitUtils = require('../utils/git');
+const fsUtils = require('../utils/filesystem');
 const {
   getCollectionGitRemoteUrl,
   handleListRemoteBranches,
   handleGetCollectionGitData,
   handleInitRepo,
+  handleRemoveGitDir,
   handleGetStatus,
   handleStage,
   handleUnstage,
@@ -282,6 +296,52 @@ describe('handleInitRepo', () => {
     await expect(handleInitRepo(null, { collectionPath: COLLECTION })).rejects.toThrow(
       'Collection is not part of a git repository'
     );
+  });
+});
+
+describe('handleRemoveGitDir', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    gitUtils.getCollectionGitRootPath.mockReturnValue(REPO);
+  });
+
+  it('deletes the repository .git directory', async () => {
+    fs.existsSync.mockReturnValue(true);
+
+    const result = await handleRemoveGitDir(null, { collectionPath: COLLECTION });
+
+    expect(fs.promises.rm).toHaveBeenCalledWith(path.join(REPO, '.git'), expect.objectContaining({ recursive: true }));
+    expect(result).toEqual({ success: true });
+  });
+
+  it('invalidates the cached root so the panel flips back to the init state', async () => {
+    fs.existsSync.mockReturnValue(true);
+
+    await handleRemoveGitDir(null, { collectionPath: COLLECTION });
+
+    expect(gitUtils.invalidateCollectionGitRootPath).toHaveBeenCalledWith(COLLECTION);
+  });
+
+  it('refuses when the collection is not a repo', async () => {
+    gitUtils.getCollectionGitRootPath.mockReturnValue(null);
+
+    await expect(handleRemoveGitDir(null, { collectionPath: COLLECTION })).rejects.toThrow(
+      'Collection is not part of a git repository'
+    );
+    expect(fs.promises.rm).not.toHaveBeenCalled();
+  });
+
+  it('refuses when there is no .git directory on disk', async () => {
+    fs.existsSync.mockReturnValue(false);
+
+    await expect(handleRemoveGitDir(null, { collectionPath: COLLECTION })).rejects.toThrow(
+      'No .git directory found for this collection'
+    );
+    expect(fs.promises.rm).not.toHaveBeenCalled();
+  });
+
+  it('rejects a missing collection path', async () => {
+    await expect(handleRemoveGitDir(null, {})).rejects.toThrow('Collection path is required');
   });
 });
 

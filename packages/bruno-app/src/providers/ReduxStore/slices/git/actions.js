@@ -175,6 +175,24 @@ export const initRepo = (collectionUid, collectionPath) => async (dispatch) => {
 };
 
 /**
+ * Delete the collection's `.git` directory. Destructive, so the caller must
+ * confirm first. Afterwards the repo root no longer resolves, which flips the
+ * panel back to the Initialize Git empty state.
+ */
+export const removeGitDir = (collectionUid, collectionPath) => async (dispatch) => {
+  dispatch(setRepoError({ collectionUid, error: null }));
+  try {
+    const result = await invoke('renderer:git-remove-git-dir', { collectionPath });
+    await dispatch(refreshRepo(collectionUid, collectionPath));
+    return result;
+  } catch (error) {
+    const message = errorMessage(error, 'Failed to remove .git');
+    dispatch(setRepoError({ collectionUid, error: message }));
+    throw error;
+  }
+};
+
+/**
  * Diffs are read on demand and returned to the caller rather than stored.
  */
 export const getFileDiff = (collectionPath, filePath, staged) => async () => {
