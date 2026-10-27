@@ -5,8 +5,11 @@ const {
   getCollectionGitRepoUrl,
   listBranchesForRemoteUrl,
   getCollectionGitRootPath,
+  invalidateCollectionGitRootPath,
+  initGit,
   getCollectionGitBranches,
   getCurrentGitBranch,
+  getDefaultGitBranch,
   getChangedFilesInCollectionGit,
   stageChanges,
   unstageChanges,
@@ -144,16 +147,23 @@ const requireStashIndex = (stashIndex) => {
 const handleGetCollectionGitData = async (event, { collectionPath } = {}) => {
   const gitRootPath = resolveGitRootPath(collectionPath);
 
-  const [branches, currentBranch, remoteUrl] = await Promise.all([
+  const [branches, currentBranch, remoteUrl, defaultBranch] = await Promise.all([
     getCollectionGitBranches(gitRootPath).catch(() => []),
     getCurrentGitBranch(gitRootPath).catch(() => ''),
-    getCollectionGitRepoUrl(gitRootPath).catch(() => '')
+    getCollectionGitRepoUrl(gitRootPath).catch(() => ''),
+    getDefaultGitBranch(gitRootPath).catch(() => '')
   ]);
+
+  // A freshly initialised repo has no commits yet, so `branchLocal` returns
+  // nothing even though HEAD already points at the branch. Fall back to the
+  // symbolic ref so the panel shows a branch name instead of "detached".
+  const resolvedBranch = currentBranch || defaultBranch || '';
+  const resolvedBranches = branches.length ? branches : resolvedBranch ? [resolvedBranch] : [];
 
   return {
     gitRootPath,
-    branches,
-    currentBranch,
+    branches: resolvedBranches,
+    currentBranch: resolvedBranch,
     remoteUrl: remoteUrl || '',
     mergeInProgress: isMergeInProgress(gitRootPath)
   };
@@ -291,6 +301,31 @@ const handleDiscardConflict = async (event, { collectionPath } = {}) => {
   return { success: true, action: 'reset-hard' };
 };
 
+/**
+ * Create a new repository for a collection that is not tracked yet.
+ *
+ * `git init` runs in the collection directory itself, not in a parent, so the
+ * collection becomes the repository root. `initGit` also renames the initial
+ * branch to `main`.
+ */
+const handleInitRepo = async (event, { collectionPath } = {}) => {
+  const targetPath = requireCollectionPath(collectionPath);
+
+  // Already inside a repo: nothing to do, and re-initialising would nest one.
+  const existingRoot = getCollectionGitRootPath(targetPath);
+  if (existingRoot) {
+    return { success: true, gitRootPath: existingRoot, alreadyInitialized: true };
+  }
+
+  await initGit(targetPath);
+
+  // The cached "no repo" answer would otherwise survive until restart.
+  invalidateCollectionGitRootPath(targetPath);
+
+  const gitRootPath = resolveGitRootPath(targetPath);
+  return { success: true, gitRootPath, alreadyInitialized: false };
+};
+
 const registerGitIpc = (mainWindow) => {
   ipcMain.handle('renderer:clone-git-repository', async (event, { url, path: targetPath, processUid, branch }) => {
     let directoryCreated = false;
@@ -315,6 +350,7 @@ const registerGitIpc = (mainWindow) => {
 
   // Git panel: commit / stash / branch / conflict
   ipcMain.handle('renderer:git-get-data', handleGetCollectionGitData);
+  ipcMain.handle('renderer:git-init', handleInitRepo);
   ipcMain.handle('renderer:git-get-status', handleGetStatus);
   ipcMain.handle('renderer:git-stage', handleStage);
   ipcMain.handle('renderer:git-unstage', handleUnstage);
@@ -335,6 +371,7 @@ module.exports = registerGitIpc;
 module.exports.getCollectionGitRemoteUrl = getCollectionGitRemoteUrl;
 module.exports.handleListRemoteBranches = handleListRemoteBranches;
 module.exports.handleGetCollectionGitData = handleGetCollectionGitData;
+module.exports.handleInitRepo = handleInitRepo;
 module.exports.handleGetStatus = handleGetStatus;
 module.exports.handleStage = handleStage;
 module.exports.handleUnstage = handleUnstage;

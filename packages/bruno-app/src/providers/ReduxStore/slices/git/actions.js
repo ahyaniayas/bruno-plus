@@ -158,6 +158,23 @@ export const discardConflict = (collectionUid, collectionPath) =>
   runMutation(collectionUid, collectionPath, 'renderer:git-discard-conflict', {}, 'Failed to discard conflict');
 
 /**
+ * Turn the collection into a git repository. After init the panel must
+ * re-resolve the repo root, so this refreshes rather than patching state.
+ */
+export const initRepo = (collectionUid, collectionPath) => async (dispatch) => {
+  dispatch(setRepoError({ collectionUid, error: null }));
+  try {
+    const result = await invoke('renderer:git-init', { collectionPath });
+    await dispatch(refreshRepo(collectionUid, collectionPath));
+    return result;
+  } catch (error) {
+    const message = errorMessage(error, 'Failed to initialize repository');
+    dispatch(setRepoError({ collectionUid, error: message }));
+    throw error;
+  }
+};
+
+/**
  * Diffs are read on demand and returned to the caller rather than stored.
  */
 export const getFileDiff = (collectionPath, filePath, staged) => async () => {

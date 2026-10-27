@@ -372,6 +372,44 @@ const StyledWrapper = styled.div`
     color: ${(props) => props.theme.colors.text.subtext1};
     font-size: 11px;
   }
+
+  .git-init-card {
+    margin: 16px 10px;
+    padding: 24px 16px;
+    border: 1px solid ${(props) => props.theme.border.border1};
+    border-radius: ${(props) => props.theme.border.radius.md};
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .git-init-icon {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: ${(props) => props.theme.background.surface1};
+    color: ${(props) => props.theme.text};
+  }
+
+  .git-init-title {
+    font-size: ${(props) => props.theme.font.size.md};
+    font-weight: 600;
+    margin: 0;
+    color: ${(props) => props.theme.text};
+  }
+
+  .git-init-description {
+    margin: 0 0 4px;
+    font-size: ${(props) => props.theme.font.size.sm};
+    line-height: 1.5;
+    color: ${(props) => props.theme.colors.text.subtext1};
+    max-width: 260px;
+  }
 `;
 
 export default StyledWrapper;

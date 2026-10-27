@@ -4,8 +4,11 @@ jest.mock('../utils/git', () => ({
   getCollectionGitRepoUrl: jest.fn(),
   listBranchesForRemoteUrl: jest.fn(),
   getCollectionGitRootPath: jest.fn(),
+  invalidateCollectionGitRootPath: jest.fn(),
+  initGit: jest.fn(),
   getCollectionGitBranches: jest.fn(),
   getCurrentGitBranch: jest.fn(),
+  getDefaultGitBranch: jest.fn(),
   getChangedFilesInCollectionGit: jest.fn(),
   stageChanges: jest.fn(),
   unstageChanges: jest.fn(),
@@ -34,6 +37,7 @@ const {
   getCollectionGitRemoteUrl,
   handleListRemoteBranches,
   handleGetCollectionGitData,
+  handleInitRepo,
   handleGetStatus,
   handleStage,
   handleUnstage,
@@ -195,6 +199,7 @@ describe('handleGetCollectionGitData', () => {
   it('returns branches, current branch and remote url', async () => {
     gitUtils.getCollectionGitBranches.mockResolvedValue(['main', 'dev']);
     gitUtils.getCurrentGitBranch.mockResolvedValue('dev');
+    gitUtils.getDefaultGitBranch.mockResolvedValue('main');
     gitUtils.getCollectionGitRepoUrl.mockResolvedValue('https://github.com/org/repo.git');
     gitUtils.isMergeInProgress.mockReturnValue(false);
 
@@ -210,6 +215,7 @@ describe('handleGetCollectionGitData', () => {
   it('still returns branch data for a repo without an origin remote', async () => {
     gitUtils.getCollectionGitBranches.mockResolvedValue(['main']);
     gitUtils.getCurrentGitBranch.mockResolvedValue('main');
+    gitUtils.getDefaultGitBranch.mockResolvedValue('main');
     gitUtils.getCollectionGitRepoUrl.mockRejectedValue(new Error('No such remote origin'));
     gitUtils.isMergeInProgress.mockReturnValue(false);
 
@@ -217,6 +223,65 @@ describe('handleGetCollectionGitData', () => {
 
     expect(result.branches).toEqual(['main']);
     expect(result.remoteUrl).toBe('');
+  });
+
+  it('falls back to the symbolic ref for a freshly initialised repo', async () => {
+    // No commits yet: branchLocal is empty but HEAD already points at main.
+    gitUtils.getCollectionGitBranches.mockResolvedValue([]);
+    gitUtils.getCurrentGitBranch.mockResolvedValue('');
+    gitUtils.getDefaultGitBranch.mockResolvedValue('main');
+    gitUtils.getCollectionGitRepoUrl.mockRejectedValue(new Error('No such remote origin'));
+    gitUtils.isMergeInProgress.mockReturnValue(false);
+
+    const result = await handleGetCollectionGitData(null, { collectionPath: COLLECTION });
+
+    expect(result.currentBranch).toBe('main');
+    expect(result.branches).toEqual(['main']);
+  });
+});
+
+describe('handleInitRepo', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('initialises the repository in the collection directory', async () => {
+    gitUtils.getCollectionGitRootPath.mockReturnValueOnce(null).mockReturnValue(REPO);
+
+    const result = await handleInitRepo(null, { collectionPath: COLLECTION });
+
+    expect(gitUtils.initGit).toHaveBeenCalledWith(COLLECTION);
+    expect(result).toEqual({ success: true, gitRootPath: REPO, alreadyInitialized: false });
+  });
+
+  it('drops the cached "not a repo" lookup so the panel re-resolves', async () => {
+    gitUtils.getCollectionGitRootPath.mockReturnValueOnce(null).mockReturnValue(REPO);
+
+    await handleInitRepo(null, { collectionPath: COLLECTION });
+
+    expect(gitUtils.invalidateCollectionGitRootPath).toHaveBeenCalledWith(COLLECTION);
+  });
+
+  it('is a no-op when the collection is already in a repository', async () => {
+    gitUtils.getCollectionGitRootPath.mockReturnValue(REPO);
+
+    const result = await handleInitRepo(null, { collectionPath: COLLECTION });
+
+    expect(gitUtils.initGit).not.toHaveBeenCalled();
+    expect(result).toEqual({ success: true, gitRootPath: REPO, alreadyInitialized: true });
+  });
+
+  it('rejects a missing collection path', async () => {
+    await expect(handleInitRepo(null, {})).rejects.toThrow('Collection path is required');
+    expect(gitUtils.initGit).not.toHaveBeenCalled();
+  });
+
+  it('fails loudly when the repository still cannot be resolved after init', async () => {
+    gitUtils.getCollectionGitRootPath.mockReturnValue(null);
+
+    await expect(handleInitRepo(null, { collectionPath: COLLECTION })).rejects.toThrow(
+      'Collection is not part of a git repository'
+    );
   });
 });
 

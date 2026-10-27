@@ -111,6 +111,9 @@ beforeEach(() => {
       if (channel === 'renderer:git-discard-conflict') {
         return Promise.resolve({ success: true, action: 'aborted-merge' });
       }
+      if (channel === 'renderer:git-init') {
+        return Promise.resolve({ success: true, gitRootPath: '/repo', alreadyInitialized: false });
+      }
       if (channel === 'renderer:git-pull') {
         return Promise.resolve({ success: true, mergeInProgress: false });
       }
@@ -135,10 +138,22 @@ describe('GitPanel', () => {
     expect(screen.getByText('Checking repository…')).toBeInTheDocument();
   });
 
-  it('explains that the collection is not a git repo', async () => {
+  it('offers to initialize a repository when the collection is not tracked', async () => {
     await renderPanel({ gitRootPath: null });
 
-    expect(screen.getByText('This collection is not inside a git repository.')).toBeInTheDocument();
+    expect(screen.getByTestId('git-init-empty-state')).toBeInTheDocument();
+    expect(screen.getByText('Initialize Git Repository')).toBeInTheDocument();
+    expect(screen.getByTestId('git-init-btn')).toBeInTheDocument();
+  });
+
+  it('initializes the repository when the button is clicked', async () => {
+    await renderPanel({ gitRootPath: null });
+
+    fireEvent.click(screen.getByTestId('git-init-btn'));
+
+    await waitFor(() => {
+      expect(window.ipcRenderer.invoke).toHaveBeenCalledWith('renderer:git-init', { collectionPath: PATH });
+    });
   });
 
   it('shows the current branch and all four tabs', async () => {

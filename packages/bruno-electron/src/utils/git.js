@@ -76,6 +76,16 @@ const getCollectionGitRootPath = (collectionPath) => {
   return gitRootPath;
 };
 
+/**
+ * Drop the cached lookup for a collection.
+ *
+ * A missing repo is cached as null, so after `git init` the cache would keep
+ * reporting "not a repository" until the app restarts.
+ */
+const invalidateCollectionGitRootPath = (collectionPath) => {
+  collectionPathToGitRootPathMap.delete(collectionPath);
+};
+
 const getCollectionGitRepoUrl = async (gitRootPath) => {
   return new Promise((resolve, reject) => {
     const git = getSimpleGitInstanceForPath(gitRootPath);
@@ -1825,6 +1835,7 @@ const getGitGraph = async (gitRootPath, branchName, limit = 50) => {
 
 module.exports = {
   getCollectionGitRootPath,
+  invalidateCollectionGitRootPath,
   getCollectionGitRepoUrl,
   stageChanges,
   unstageChanges,

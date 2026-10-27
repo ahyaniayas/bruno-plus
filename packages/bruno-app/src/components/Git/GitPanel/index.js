@@ -8,6 +8,7 @@ import ChangesTab from './ChangesTab';
 import StashTab from './StashTab';
 import BranchTab from './BranchTab';
 import ConflictTab from './ConflictTab';
+import InitRepoEmptyState from './InitRepoEmptyState';
 
 const TABS = [
   { id: 'changes', label: 'Changes' },
@@ -50,7 +51,7 @@ const GitPanel = ({ collectionUid, collectionPath }) => {
   }
 
   if (!isRepo) {
-    return <div className="git-empty">This collection is not inside a git repository.</div>;
+    return <InitRepoEmptyState collectionUid={collectionUid} collectionPath={collectionPath} />;
   }
 
   const changeCount = repo.staged.length + repo.unstaged.length;
