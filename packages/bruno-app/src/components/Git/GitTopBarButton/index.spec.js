@@ -61,11 +61,20 @@ beforeEach(() => {
 });
 
 describe('GitTopBarButton — two separate controls', () => {
-  it('renders a label button and a separate caret button', async () => {
+  it('renders a label button and a separate caret button when tracked', async () => {
     await renderButton(TRACKED);
 
     expect(screen.getByTestId('git-topbar-open-btn')).toBeInTheDocument();
     expect(screen.getByTestId('git-topbar-caret-btn')).toBeInTheDocument();
+  });
+
+  it('hides the caret entirely when the collection is not a repo', async () => {
+    // An empty dropdown container would otherwise render with no items in it.
+    await renderButton({ gitRootPath: null, currentBranch: '', branches: [] });
+
+    expect(screen.getByTestId('git-topbar-open-btn')).toBeInTheDocument();
+    expect(screen.queryByTestId('git-topbar-caret-btn')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('git-topbar-menu')).not.toBeInTheDocument();
   });
 
   it('opens the panel from the label button', async () => {
@@ -137,15 +146,11 @@ describe('GitTopBarButton — menu', () => {
     expect(await screen.findByText('Disconnect Git')).toBeInTheDocument();
   });
 
-  it('hides Disconnect Git when the collection is not a repo', async () => {
+  it('offers no menu at all when the collection is not a repo', async () => {
     await renderButton({ gitRootPath: null, currentBranch: '', branches: [] });
 
-    fireEvent.click(screen.getByTestId('git-topbar-caret-btn'));
-
-    // Wait for the menu to mount, then assert the repo-only action is absent.
-    await waitFor(() => {
-      expect(screen.queryByText('Disconnect Git')).not.toBeInTheDocument();
-    });
+    expect(screen.queryByText('Disconnect Git')).not.toBeInTheDocument();
+    expect(screen.queryByText('Create branch…')).not.toBeInTheDocument();
   });
 
   it('does not offer Create branch in the menu', async () => {

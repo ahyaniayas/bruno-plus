@@ -77,6 +77,15 @@ const StyledWrapper = styled.div`
       padding: 0 5px;
       border-left: 1px solid ${(props) => props.theme.border.border1};
     }
+
+    /* Without the caret the group is a single button, so keep it fully rounded. */
+    &.no-menu {
+      border-radius: ${(props) => props.theme.border.radius.base};
+
+      .git-topbar-main {
+        border-radius: ${(props) => props.theme.border.radius.base};
+      }
+    }
   }
 
   .switcher-trigger {

@@ -67,32 +67,47 @@ const GitTopBarButton = ({ collectionUid, collectionPath, onOpenPanel }) => {
       : [])
   ];
 
+  const mainButton = (
+    <button
+      type="button"
+      className="git-topbar-main"
+      disabled={busy}
+      onClick={onOpenPanel}
+      title={isRepo ? `Open Git Plus — on branch ${currentBranch}` : 'Open Git Plus'}
+      data-testid="git-topbar-open-btn"
+    >
+      <IconBrandGit size={14} strokeWidth={1.5} />
+      <span className="git-topbar-label">{label}</span>
+    </button>
+  );
+
+  const caretButton = (
+    <button
+      type="button"
+      className="git-topbar-caret"
+      disabled={busy}
+      title="Git actions"
+      aria-label="Git actions"
+      data-testid="git-topbar-caret-btn"
+    >
+      <IconChevronDown size={13} strokeWidth={1.5} />
+    </button>
+  );
+
   return (
     <>
-      <div className={`git-topbar-group ${isRepo ? 'is-repo' : ''}`} data-testid="git-topbar-group">
-        <button
-          type="button"
-          className="git-topbar-main"
-          disabled={busy}
-          onClick={onOpenPanel}
-          title={isRepo ? `Open Git Plus — on branch ${currentBranch}` : 'Open Git Plus'}
-          data-testid="git-topbar-open-btn"
-        >
-          <IconBrandGit size={14} strokeWidth={1.5} />
-          <span className="git-topbar-label">{label}</span>
-        </button>
-        <MenuDropdown items={items} placement="bottom-end" data-testid="git-topbar-menu">
-          <button
-            type="button"
-            className="git-topbar-caret"
-            disabled={busy}
-            title="Git actions"
-            aria-label="Git actions"
-            data-testid="git-topbar-caret-btn"
-          >
-            <IconChevronDown size={13} strokeWidth={1.5} />
-          </button>
-        </MenuDropdown>
+      <div
+        className={`git-topbar-group ${isRepo ? 'is-repo' : 'no-menu'}`}
+        data-testid="git-topbar-group"
+      >
+        {mainButton}
+        {/* No repo means no branches and no repo actions, so the menu would
+            render as an empty container. Render the plain button instead. */}
+        {isRepo && (
+          <MenuDropdown items={items} placement="bottom-end" data-testid="git-topbar-menu">
+            {caretButton}
+          </MenuDropdown>
+        )}
       </div>
 
       {removeModalOpen && (
