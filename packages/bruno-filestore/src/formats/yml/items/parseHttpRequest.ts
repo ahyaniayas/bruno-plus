@@ -12,8 +12,7 @@ import { toBrunoAssertions } from '../common/assertions';
 import { toBrunoApp } from '../common/app';
 import { normalizeOmitHeaders } from '../common/omit-headers';
 import { uuid, ensureString } from '../../../utils';
-import { utils } from '@usebruno/common';
-const { toBool, toMaxRedirects } = utils;
+import { toBool, toMaxRedirects } from '@usebruno/common/utils';
 
 const parseHttpRequest = (ocRequest: HttpRequest): BrunoItem => {
   const info = ocRequest.info;

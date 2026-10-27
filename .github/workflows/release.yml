@@ -61,14 +61,42 @@ jobs:
         env:
           # Signing is optional. Without these the build is unsigned and users
           # must bypass Gatekeeper (macOS) or SmartScreen (Windows) manually.
-          CSC_LINK: ${{ secrets.CSC_LINK }}
-          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
-          CSC_NAME: ${{ secrets.CSC_NAME }}
-          APPLE_ID: ${{ secrets.APPLE_ID }}
-          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          #
+          # IMPORTANT: electron-builder treats an *empty* CSC_LINK/WIN_CSC_LINK
+          # as "use the default certificate path", which on Windows resolves to
+          # the current working directory and aborts the packaging with:
+          #   ⨯ Env WIN_CSC_LINK is not correct, cannot resolve: ... not a file
+          # Secrets that are not configured expand to an empty string, so they
+          # must NOT be exported directly. Pass the values in through
+          # `SIGNING_*` and only forward the ones that are actually set.
+          SIGNING_CSC_LINK: ${{ secrets.CSC_LINK }}
+          SIGNING_CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+          SIGNING_CSC_NAME: ${{ secrets.CSC_NAME }}
+          SIGNING_APPLE_ID: ${{ secrets.APPLE_ID }}
+          SIGNING_APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          SIGNING_APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: npx electron-builder --${{ matrix.platform }} --config electron-builder-config.js --publish never
+        run: |
+          # Only export the signing variables that have a value. An unset
+          # CSC_LINK/WIN_CSC_LINK makes electron-builder try to load a
+          # certificate from the working directory and fail the job.
+          for var in \
+            CSC_LINK CSC_KEY_PASSWORD CSC_NAME \
+            APPLE_ID APPLE_APP_SPECIFIC_PASSWORD APPLE_TEAM_ID
+          do
+            value="$(printenv "SIGNING_${var}" || true)"
+            if [ -n "${value}" ]; then
+              export "${var}=${value}"
+            fi
+          done
+
+          if [ -n "${CSC_LINK:-}" ]; then
+            echo "Packaging with code signing credentials."
+          else
+            echo "Packaging unsigned (no signing secrets configured)."
+          fi
+
+          npx electron-builder --${{ matrix.platform }} --config electron-builder-config.js --publish never
 
       - name: Upload installers
         uses: actions/upload-artifact@v4

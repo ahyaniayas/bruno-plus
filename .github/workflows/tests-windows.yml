@@ -94,9 +94,18 @@ jobs:
           check_run: false
 
   e2e-test:
-    name: Playwright E2E Tests (Windows)
+    # Windows previously ran the whole suite in a single job (2h49m), retried
+    # every failure twice, and still hit the 240 minute cap. Sharding splits the
+    # suite the same way Linux already does, so failures surface faster and a
+    # single hung Electron instance can no longer red the entire run.
+    name: Playwright E2E Tests (Windows) ${{ matrix.shard }}/${{ matrix.shardTotal }}
     timeout-minutes: 240
     runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        shardTotal: [3]
+        shard: [1, 2, 3]
     steps:
       - uses: actions/checkout@v6
 
@@ -110,12 +119,13 @@ jobs:
         with:
           os: windows
           shell: pwsh
+          shard: ${{ matrix.shard }}/${{ matrix.shardTotal }}
 
       - name: Upload Playwright Report
         uses: actions/upload-artifact@v6
         if: ${{ !cancelled() }}
         with:
-          name: playwright-report-windows
+          name: playwright-report-windows-${{ matrix.shard }}
           path: playwright-report/
           retention-days: 30
 

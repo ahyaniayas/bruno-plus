@@ -22,7 +22,7 @@ export const toOpenCollectionActions = (resVariables: BrunoVariables | null | un
       type: 'set-variable',
       phase: 'after-response',
       selector: {
-        expression: v.value || '',
+        expression: String(v.value ?? ''),
         method: 'jsonq'
       },
       variable: {

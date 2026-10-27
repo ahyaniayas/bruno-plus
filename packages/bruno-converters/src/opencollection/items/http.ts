@@ -235,8 +235,9 @@ export const toOpenCollectionHttpItem = (item: BrunoItem): HttpRequest => {
     maxRedirects: toMaxRedirects(brunoSettings?.maxRedirects),
     forwardAuthorizationHeader: toBool(brunoSettings?.forwardAuthorizationHeader, true)
   };
-  if (Array.isArray(brunoSettings?.omitHeaders) && brunoSettings.omitHeaders.length) {
-    settings.omitHeaders = brunoSettings.omitHeaders;
+  const omitHeaders = brunoSettings?.omitHeaders;
+  if (Array.isArray(omitHeaders) && omitHeaders.length) {
+    settings.omitHeaders = omitHeaders;
   }
   ocRequest.settings = settings;
 

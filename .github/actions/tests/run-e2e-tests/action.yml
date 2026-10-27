@@ -12,6 +12,12 @@ inputs:
     description: 'Optional Playwright shard, e.g. 1/4'
     required: false
     default: ''
+  workers:
+    description: >-
+      Playwright worker count. Each worker drives its own Electron instance, so
+      this is capped to keep CI runners from running out of CPU/memory.
+    required: false
+    default: '2'
 runs:
   using: 'composite'
   steps:
@@ -19,22 +25,28 @@ runs:
       shell: ${{ inputs.shell }}
       run: npm ci --prefix packages/bruno-tests/collection
 
+    # Playwright retries a failed test as soon as the worker is free. On a
+    # 2-core windows-latest runner that means a retry can start while another
+    # Electron instance is still shutting down, which shows up as
+    # "Target page, context or browser has been closed" instead of the real
+    # failure. Capping the workers keeps Electron instances from competing for
+    # CPU/memory and makes the failures reproducible.
     - name: Run Playwright Tests (Ubuntu)
       if: inputs.os == 'ubuntu' && inputs.shard == ''
       shell: bash
-      run: xvfb-run dbus-run-session -- npm run test:e2e
+      run: xvfb-run dbus-run-session -- npm run test:e2e -- --workers=${{ inputs.workers }}
 
     - name: Run Playwright Tests (Ubuntu, sharded)
       if: inputs.os == 'ubuntu' && inputs.shard != ''
       shell: bash
-      run: xvfb-run dbus-run-session -- npm run test:e2e -- --shard=${{ inputs.shard }}
+      run: xvfb-run dbus-run-session -- npm run test:e2e -- --shard=${{ inputs.shard }} --workers=${{ inputs.workers }}
 
     - name: Run Playwright Tests
       if: inputs.os != 'ubuntu' && inputs.shard == ''
       shell: ${{ inputs.shell }}
-      run: npm run test:e2e
+      run: npm run test:e2e -- --workers=${{ inputs.workers }}
 
     - name: Run Playwright Tests (sharded)
       if: inputs.os != 'ubuntu' && inputs.shard != ''
       shell: ${{ inputs.shell }}
-      run: npm run test:e2e -- --shard=${{ inputs.shard }}
+      run: npm run test:e2e -- --shard=${{ inputs.shard }} --workers=${{ inputs.workers }}

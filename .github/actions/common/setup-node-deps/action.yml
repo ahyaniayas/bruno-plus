@@ -1,5 +1,5 @@
 name: 'Setup Node Dependencies'
-description: 'Install Node.js and npm dependencies'
+description: 'Install Node.js and npm dependencies, then build the workspace libraries'
 inputs:
   skip-build:
     description: 'Skip building libraries'
@@ -9,6 +9,16 @@ inputs:
     description: 'Shell to use (bash, pwsh)'
     required: false
     default: 'bash'
+  run-prepare:
+    description: >-
+      Run `npm run prepare`. Enabled by default because the root `prepare`
+      script (husky) runs during `npm ci`; after a workspace package.json
+      changes npm skips it, which leaves `.husky/_/*` hooks missing and makes
+      the git hooks fail with "cannot spawn .husky/_/h". Setting it explicitly
+      keeps `npm ci` failing fast on genuine prepare errors instead of it
+      silently re-running in the background during unrelated test steps.
+    required: false
+    default: 'true'
 runs:
   using: 'composite'
   steps:
@@ -23,6 +33,17 @@ runs:
       shell: ${{ inputs.shell }}
       run: npm ci --legacy-peer-deps
 
+    - name: Prepare git hooks
+      if: inputs.run-prepare == 'true'
+      shell: ${{ inputs.shell }}
+      run: npm run prepare
+
+    # Order matters: every package is consumed through the dist/ output of the
+    # packages it imports, so a dependency must be built before its consumers.
+    # `@usebruno/schema-types` in particular must come before bruno-converters,
+    # bruno-requests and bruno-filestore, otherwise rollup emits
+    # "TS2307: Cannot find module '@usebruno/schema-types/...'" and the
+    # declaration files of the consumers end up incomplete.
     - name: Build libraries
       if: inputs.skip-build != 'true'
       shell: ${{ inputs.shell }}
@@ -30,9 +51,20 @@ runs:
         npm run build:graphql-docs
         npm run build:bruno-query
         npm run build:bruno-common
+        npm run build:schema-types
         npm run sandbox:bundle-libraries --workspace=packages/bruno-js
         npm run build:bruno-converters
         npm run build:bruno-requests
-        npm run build:schema-types
         npm run build:bruno-filestore
         npm run build:bruno-sqlite
+
+    # Guard rail: the libraries above publish `dist/` and consume each other
+    # through it (e.g. bruno-filestore does `import { utils } from
+    # '@usebruno/common'`, which resolves to bruno-common/dist). A stale or
+    # missing dist silently breaks every downstream consumer with confusing
+    # errors such as "Cannot destructure property 'toBool' of 'r.utils' as it
+    # is undefined". Fail here, with a readable message, instead.
+    - name: Verify workspace library build output
+      if: inputs.skip-build != 'true'
+      shell: ${{ inputs.shell }}
+      run: node .github/scripts/verify-library-builds.js
