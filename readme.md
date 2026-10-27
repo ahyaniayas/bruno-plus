@@ -67,9 +67,9 @@ inside a larger repo cannot destroy that repo's history.
 | | Upstream Bruno | Bruno Plus |
 | --- | --- | --- |
 | App name | `Bruno` | `Bruno Plus` |
-| Package name | `bruno` | `bruno-plus` |
-| App data directory | `…/bruno` | `…/bruno-plus` |
-| Default collection location | `~/Documents/bruno` | `~/Documents/bruno-plus` |
+| Package name | `bruno` | `brunoplus` |
+| App data directory | `…/bruno` | `…/brunoplus` |
+| Default collection location | `~/Documents/bruno` | `~/Documents/brunoplus` |
 | Git UI | not in the open-source edition | included |
 | Dependabot | enabled | removed |
 
@@ -77,8 +77,8 @@ Because the data directory changed, **existing Bruno data is not picked up autom
 fresh. To move your data over, quit the app and rename the folders:
 
 ```bash
-mv ~/Library/Application\ Support/bruno ~/Library/Application\ Support/bruno-plus   # macOS
-mv ~/Documents/bruno ~/Documents/bruno-plus
+mv ~/Library/Application\ Support/bruno ~/Library/Application\ Support/brunoplus   # macOS
+mv ~/Documents/bruno ~/Documents/brunoplus
 ```
 
 ## Requirements

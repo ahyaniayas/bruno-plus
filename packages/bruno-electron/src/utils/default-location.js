@@ -2,7 +2,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { app } = require('electron');
 
-const BRUNO_DIR_NAME = 'bruno-plus';
+const BRUNO_DIR_NAME = 'brunoplus';
 
 /**
  * Returns the default location where new workspaces and collections are stored.

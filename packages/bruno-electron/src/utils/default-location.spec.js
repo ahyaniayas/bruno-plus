@@ -7,7 +7,7 @@ const path = require('node:path');
 const { app } = require('electron');
 
 const DOCUMENTS = '/home/user/Documents';
-const USER_DATA = '/home/user/.config/bruno-plus';
+const USER_DATA = '/home/user/.config/brunoplus';
 
 app.getPath.mockImplementation((name) => {
   if (name === 'documents') return DOCUMENTS;
@@ -30,14 +30,14 @@ describe('resolveDefaultLocation', () => {
     jest.restoreAllMocks();
   });
 
-  it('stores collections under Documents/bruno-plus', () => {
-    expect(resolveDefaultLocation()).toBe(path.join(DOCUMENTS, 'bruno-plus'));
+  it('stores collections under Documents/brunoplus', () => {
+    expect(resolveDefaultLocation()).toBe(path.join(DOCUMENTS, 'brunoplus'));
   });
 
   it('creates the directory before returning it', () => {
     resolveDefaultLocation();
 
-    expect(mkdirSpy).toHaveBeenCalledWith(path.join(DOCUMENTS, 'bruno-plus'), { recursive: true });
+    expect(mkdirSpy).toHaveBeenCalledWith(path.join(DOCUMENTS, 'brunoplus'), { recursive: true });
   });
 
   it('does not fall back to the legacy "bruno" directory', () => {
@@ -49,7 +49,7 @@ describe('resolveDefaultLocation', () => {
 
   it('falls back to userData when Documents cannot be created', () => {
     mkdirSpy.mockImplementation((dirPath) => {
-      if (dirPath === path.join(DOCUMENTS, 'bruno-plus')) {
+      if (dirPath === path.join(DOCUMENTS, 'brunoplus')) {
         throw new Error('permission denied');
       }
       return undefined;
