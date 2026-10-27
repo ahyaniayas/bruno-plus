@@ -67,7 +67,7 @@ const ConfigTab = ({ collectionUid, collectionPath, repo }) => {
         <GitConfigForm
           remoteUrl={remoteUrl}
           branch={repo.currentBranch || ''}
-          submitLabel="Save remote"
+          submitLabel="Save Config"
           submitting={saving}
           onSubmit={handleSubmit}
           showBranchField={false}

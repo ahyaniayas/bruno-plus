@@ -1,3 +1,4 @@
+import { formatGitError } from 'components/Git/GitPanel/utils';
 import {
   setRepoResolved,
   setRepoData,
@@ -9,7 +10,7 @@ import {
 
 const invoke = (channel, payload) => window.ipcRenderer.invoke(channel, payload);
 
-const errorMessage = (error, fallback) => error?.message || fallback;
+const errorMessage = (error, fallback) => formatGitError(error, fallback);
 
 /**
  * Read branch / remote info for a collection.
@@ -29,7 +30,10 @@ export const loadRepoData = (collectionUid, collectionPath) => async (dispatch) 
         currentBranch: data.currentBranch,
         branches: data.branches,
         remoteUrl: data.remoteUrl,
-        mergeInProgress: data.mergeInProgress
+        mergeInProgress: data.mergeInProgress,
+        ahead: data.ahead,
+        behind: data.behind,
+        aheadCommits: data.aheadCommits
       })
     );
     return data;
@@ -44,7 +48,9 @@ export const loadRepoData = (collectionUid, collectionPath) => async (dispatch) 
         currentBranch: '',
         branches: [],
         remoteUrl: '',
-        mergeInProgress: false
+        mergeInProgress: false,
+        ahead: 0,
+        behind: 0
       })
     );
     dispatch(setRepoStatus({ collectionUid, staged: [], unstaged: [], conflicted: [] }));
@@ -113,8 +119,15 @@ const runMutation = (collectionUid, collectionPath, channel, payload, fallbackEr
     await dispatch(refreshRepo(collectionUid, collectionPath));
     return result;
   } catch (error) {
+    const raw = error?.message || '';
     const message = errorMessage(error, fallbackError);
-    dispatch(setRepoError({ collectionUid, error: message }));
+    if (error && typeof error === 'object') {
+      error.rawMessage = raw;
+      error.message = message;
+    }
+    // Errors are isolated per tab so switching tabs doesn't pollute other tabs
+    dispatch(setRepoError({ collectionUid, error: null }));
+    await dispatch(refreshRepo(collectionUid, collectionPath)).catch(() => null);
     throw error;
   }
 };
@@ -157,6 +170,9 @@ export const applyStash = (collectionUid, collectionPath, stashIndex) =>
 
 export const dropStash = (collectionUid, collectionPath, stashIndex) =>
   runMutation(collectionUid, collectionPath, 'renderer:git-stash-drop', { stashIndex }, 'Failed to drop stash');
+
+export const pushBranch = (collectionUid, collectionPath, { remote, remoteBranch, processUid } = {}) =>
+  runMutation(collectionUid, collectionPath, 'renderer:git-push', { remote, remoteBranch, processUid }, 'Failed to push');
 
 export const pullBranch = (collectionUid, collectionPath, { remote, remoteBranch, strategy, processUid }) =>
   runMutation(
@@ -229,4 +245,47 @@ export const removeGitDir = (collectionUid, collectionPath) => async (dispatch) 
 export const getFileDiff = (collectionPath, filePath, staged) => async () => {
   const { diff } = await invoke('renderer:git-get-file-diff', { collectionPath, filePath, staged });
   return diff;
+};
+
+export const getGitignore = (collectionPath) => async () => {
+  const result = await invoke('renderer:git-get-gitignore', { collectionPath });
+  return result;
+};
+
+export const saveGitignore = (collectionUid, collectionPath, content) => async (dispatch) => {
+  const result = await runMutation(
+    collectionUid,
+    collectionPath,
+    'renderer:git-save-gitignore',
+    { content },
+    'Failed to save .gitignore'
+  )(dispatch);
+  return result;
+};
+
+export const getReadme = (collectionPath) => async () => {
+  const result = await invoke('renderer:git-get-readme', { collectionPath });
+  return result;
+};
+
+export const saveReadme = (collectionUid, collectionPath, content) => async (dispatch) => {
+  const result = await runMutation(
+    collectionUid,
+    collectionPath,
+    'renderer:git-save-readme',
+    { content },
+    'Failed to save README'
+  )(dispatch);
+  return result;
+};
+
+export const revertCommit = (collectionUid, collectionPath, { commitHash, mode = 'undo' } = {}) => async (dispatch) => {
+  const result = await runMutation(
+    collectionUid,
+    collectionPath,
+    'renderer:git-revert-commit',
+    { commitHash, mode },
+    'Failed to revert commit'
+  )(dispatch);
+  return result;
 };

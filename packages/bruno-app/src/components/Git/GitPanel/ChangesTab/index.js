@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { useDispatch } from 'react-redux';
 import toast from 'react-hot-toast';
-import { IconAlertTriangle, IconArrowBackUp, IconMinus, IconPlus } from '@tabler/icons';
+import { IconAlertTriangle, IconArrowBackUp, IconCloudUpload, IconGitCommit, IconMinus, IconPlus } from '@tabler/icons';
 import ActionIcon from 'ui/ActionIcon';
 import Button from 'ui/Button';
 import ConfirmDialog from '../ConfirmDialog';
@@ -9,6 +9,8 @@ import {
   commitChanges,
   discardFiles,
   getFileDiff,
+  pushBranch,
+  revertCommit,
   stageFiles,
   unstageFiles
 } from 'providers/ReduxStore/slices/git/actions';
@@ -27,7 +29,7 @@ const FileRow = ({ file, selected, onSelect, actions, status }) => {
     >
       <span className={`git-file-status ${statusClass(status)}`}>{statusLetter(status)}</span>
       <span className="git-file-name">
-        {name}
+        <bdi>{name}</bdi>
         {dir ? <span className="git-file-dir"> {dir}</span> : null}
       </span>
       <span className="git-file-actions">{actions}</span>
@@ -42,11 +44,35 @@ const ChangesTab = ({ collectionUid, collectionPath, repo }) => {
   const [diff, setDiff] = useState('');
   const [diffLoading, setDiffLoading] = useState(false);
   const [discardTarget, setDiscardTarget] = useState(null);
+  const [revertTarget, setRevertTarget] = useState(null);
+  const [revertMode, setRevertMode] = useState('undo');
+  const [committing, setCommitting] = useState(false);
+  const [pushing, setPushing] = useState(false);
+  const [tabError, setTabError] = useState(null);
   const [busy, setBusy] = useState(false);
 
+  const isBusy = busy || committing || pushing;
+
   const { staged, unstaged, conflicted, tooManyFiles } = repo;
+  const aheadCommits = repo.aheadCommits || [];
   const hasStaged = staged.length > 0;
-  const canCommit = hasStaged && message.trim().length > 0 && !busy;
+  const canCommit = hasStaged && message.trim().length > 0 && !isBusy;
+
+  // Push is displayed when there are local commits ahead of remote.
+  const ahead = repo.ahead || 0;
+  const hasRemote = !!repo.remoteUrl;
+  const canShowPush = ahead > 0;
+  const canPush = hasRemote && !!repo.currentBranch && ahead > 0 && !isBusy;
+  const pushTitle = !hasRemote
+    ? 'No remote configured. Add one in the Config tab to enable push.'
+    : !repo.currentBranch
+        ? 'No branch to push.'
+        : `Push ${ahead} commit${ahead === 1 ? '' : 's'} to origin`;
+  const pushBlockedReason = !hasRemote
+    ? 'Configure a remote in the Config tab to push.'
+    : !repo.currentBranch
+        ? 'No branch to push.'
+        : '';
 
   // Drop the selection when the file disappears from the status after a mutation.
   useEffect(() => {
@@ -136,17 +162,63 @@ const ChangesTab = ({ collectionUid, collectionPath, repo }) => {
     }
   };
 
+  const handleRevertConfirmed = async () => {
+    const target = revertTarget;
+    const mode = revertMode;
+    setRevertTarget(null);
+    if (!target) return;
+    setBusy(true);
+    setTabError(null);
+    try {
+      await dispatch(
+        revertCommit(collectionUid, collectionPath, {
+          commitHash: target.hash,
+          mode
+        })
+      );
+      if (mode === 'hard') {
+        toast.success('Commit discarded');
+      } else if (mode === 'revert') {
+        toast.success('Commit reverted');
+      } else {
+        toast.success('Commit undone (changes kept in working tree)');
+      }
+    } catch (error) {
+      setTabError(error?.message || 'Failed to revert commit');
+      toast.error(error?.message || 'Failed to revert commit');
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const handleCommit = async () => {
     if (!canCommit) return;
-    setBusy(true);
+    setCommitting(true);
+    setTabError(null);
     try {
       await dispatch(commitChanges(collectionUid, collectionPath, message));
       setMessage('');
       toast.success('Changes committed');
     } catch (error) {
+      setTabError(error?.message || 'Failed to commit');
       toast.error(error?.message || 'Failed to commit');
     } finally {
-      setBusy(false);
+      setCommitting(false);
+    }
+  };
+
+  const handlePush = async () => {
+    if (!canPush) return;
+    setPushing(true);
+    setTabError(null);
+    try {
+      await dispatch(pushBranch(collectionUid, collectionPath, { remoteBranch: repo.currentBranch }));
+      toast.success(`Pushed ${repo.currentBranch} to origin`);
+    } catch (error) {
+      setTabError(error?.message || 'Failed to push');
+      toast.error(error?.message || 'Failed to push');
+    } finally {
+      setPushing(false);
     }
   };
 
@@ -162,7 +234,7 @@ const ChangesTab = ({ collectionUid, collectionPath, repo }) => {
 
   return (
     <div className="git-split">
-      {repo.error ? <div className="git-error">{repo.error}</div> : null}
+      {tabError ? <div className="git-error">{tabError}</div> : null}
 
       <div className="git-file-groups">
         {conflicted.length > 0 && (
@@ -266,7 +338,58 @@ const ChangesTab = ({ collectionUid, collectionPath, repo }) => {
           </>
         )}
 
-        {nothingToShow && <div className="git-empty">Working tree clean — nothing to commit.</div>}
+        {aheadCommits.length > 0 && (
+          <>
+            <div className="git-group-title" data-testid="git-unpushed-commits-header">
+              <IconGitCommit size={12} strokeWidth={2} />
+              <span>Unpushed Commits ({aheadCommits.length})</span>
+            </div>
+            {aheadCommits.map((commit, index) => {
+              const isHead = index === 0;
+              const shortHash = commit.hash ? commit.hash.slice(0, 7) : '';
+              return (
+                <div className="git-commit-row" key={commit.hash || index} data-testid="git-unpushed-commit-row">
+                  <span className="git-commit-icon" title={isHead ? 'Latest unpushed commit (HEAD)' : 'Unpushed commit'}>
+                    <IconGitCommit size={14} strokeWidth={1.8} />
+                  </span>
+                  <div className="git-commit-info">
+                    <div className="git-commit-msg" title={commit.message}>
+                      {commit.message}
+                    </div>
+                    <div className="git-commit-meta">
+                      <span className="git-commit-hash">{shortHash}</span>
+                      {commit.author && <span>{commit.author}</span>}
+                      {commit.time && <span>· {commit.time}</span>}
+                    </div>
+                  </div>
+                  <div className="git-commit-actions">
+                    <ActionIcon
+                      label="Revert or undo this commit"
+                      onClick={() => {
+                        setRevertTarget(commit);
+                        setRevertMode('undo');
+                      }}
+                      disabled={isBusy}
+                      data-testid="git-revert-commit-btn"
+                    >
+                      <IconArrowBackUp size={13} strokeWidth={1.5} />
+                    </ActionIcon>
+                  </div>
+                </div>
+              );
+            })}
+          </>
+        )}
+
+        {nothingToShow && aheadCommits.length === 0 && (
+          <div className="git-empty">Working tree clean — nothing to commit.</div>
+        )}
+
+        {nothingToShow && aheadCommits.length > 0 && (
+          <div className="git-empty" style={{ padding: '12px 10px' }}>
+            Working tree clean — ready to push.
+          </div>
+        )}
       </div>
 
       {selected && (
@@ -281,20 +404,41 @@ const ChangesTab = ({ collectionUid, collectionPath, repo }) => {
           placeholder="Commit message"
           value={message}
           onChange={(event) => setMessage(event.target.value)}
-          disabled={busy}
+          disabled={isBusy}
           data-testid="git-commit-message"
         />
-        <Button
-          size="sm"
-          fullWidth
-          disabled={!canCommit}
-          loading={busy}
-          onClick={handleCommit}
-          data-testid="git-commit-btn"
-        >
-          {hasStaged ? `Commit ${staged.length} file${staged.length === 1 ? '' : 's'}` : 'Commit'}
-        </Button>
+        <div className="git-commit-actions">
+          <Button
+            size="sm"
+            fullWidth
+            disabled={!canCommit}
+            loading={committing}
+            onClick={handleCommit}
+            data-testid="git-commit-btn"
+          >
+            {hasStaged ? `Commit ${staged.length} file${staged.length === 1 ? '' : 's'}` : 'Commit'}
+          </Button>
+          {canShowPush && (
+            <Button
+              size="sm"
+              variant="outline"
+              color="secondary"
+              fullWidth
+              icon={<IconCloudUpload size={13} strokeWidth={1.5} />}
+              disabled={!canPush}
+              loading={pushing}
+              onClick={handlePush}
+              title={pushTitle}
+              data-testid="git-push-btn"
+            >
+              Push{ahead > 0 ? ` (${ahead})` : ''}
+            </Button>
+          )}
+        </div>
         {!hasStaged && <span className="git-commit-hint">Stage files to enable commit.</span>}
+        {canShowPush && !canPush && pushBlockedReason && (
+          <span className="git-commit-hint">{pushBlockedReason}</span>
+        )}
       </div>
 
       {discardTarget && (
@@ -307,6 +451,87 @@ const ChangesTab = ({ collectionUid, collectionPath, repo }) => {
         >
           <div>
             All uncommitted changes to <strong>{discardTarget.path}</strong> will be lost. This cannot be undone.
+          </div>
+        </ConfirmDialog>
+      )}
+
+      {revertTarget && (
+        <ConfirmDialog
+          title="Revert unpushed commit?"
+          confirmText={revertMode === 'hard' ? 'Discard commit' : revertMode === 'revert' ? 'Create revert commit' : 'Undo commit'}
+          confirmButtonColor={revertMode === 'hard' ? 'danger' : 'primary'}
+          onConfirm={handleRevertConfirmed}
+          onCancel={() => setRevertTarget(null)}
+        >
+          <div>
+            <div style={{ marginBottom: 10 }}>
+              Revert unpushed commit <code>{revertTarget.hash?.slice(0, 7)}</code>:
+              <div style={{ fontWeight: 600, marginTop: 4, wordBreak: 'break-word' }}>
+                "{revertTarget.message}"
+              </div>
+            </div>
+
+            <div className="git-revert-options" data-testid="git-revert-options">
+              <label
+                className={`git-revert-option ${revertMode === 'undo' ? 'selected' : ''}`}
+                onClick={() => setRevertMode('undo')}
+              >
+                <input
+                  type="radio"
+                  name="revertMode"
+                  value="undo"
+                  checked={revertMode === 'undo'}
+                  onChange={() => setRevertMode('undo')}
+                  data-testid="git-revert-mode-undo"
+                />
+                <div className="git-revert-option-text">
+                  <div className="git-revert-option-title">Undo commit (Keep changes)</div>
+                  <div className="git-revert-option-desc">
+                    Undoes this commit and moves modified files back to your Changes list so you can edit or re-commit them.
+                  </div>
+                </div>
+              </label>
+
+              <label
+                className={`git-revert-option ${revertMode === 'revert' ? 'selected' : ''}`}
+                onClick={() => setRevertMode('revert')}
+              >
+                <input
+                  type="radio"
+                  name="revertMode"
+                  value="revert"
+                  checked={revertMode === 'revert'}
+                  onChange={() => setRevertMode('revert')}
+                  data-testid="git-revert-mode-revert"
+                />
+                <div className="git-revert-option-text">
+                  <div className="git-revert-option-title">Create revert commit</div>
+                  <div className="git-revert-option-desc">
+                    Creates a new commit on top of HEAD that inverts this commit's changes.
+                  </div>
+                </div>
+              </label>
+
+              <label
+                className={`git-revert-option ${revertMode === 'hard' ? 'selected' : ''}`}
+                onClick={() => setRevertMode('hard')}
+              >
+                <input
+                  type="radio"
+                  name="revertMode"
+                  value="hard"
+                  checked={revertMode === 'hard'}
+                  onChange={() => setRevertMode('hard')}
+                  data-testid="git-revert-mode-hard"
+                />
+                <div className="git-revert-option-text">
+                  <div className="git-revert-option-title">Discard commit completely</div>
+                  <div className="git-revert-option-desc">
+                    Deletes this commit and discards all changes permanently. This cannot be undone.
+                  </div>
+                </div>
+              </label>
+            </div>
           </div>
         </ConfirmDialog>
       )}

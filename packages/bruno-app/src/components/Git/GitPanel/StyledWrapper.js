@@ -137,8 +137,6 @@ const StyledWrapper = styled.div`
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    direction: rtl;
-    text-align: left;
   }
 
   .git-file-dir {
@@ -178,6 +176,113 @@ const StyledWrapper = styled.div`
     flex-shrink: 0;
   }
 
+  .git-commit-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 10px;
+    border-bottom: 1px solid ${(props) => props.theme.border.border1};
+    font-size: 11px;
+
+    &:hover {
+      background: ${(props) => props.theme.background.surface0};
+
+      .git-commit-actions {
+        opacity: 1;
+      }
+    }
+  }
+
+  .git-commit-icon {
+    color: ${(props) => props.theme.primary.solid};
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+  }
+
+  .git-commit-info {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .git-commit-msg {
+    font-weight: 500;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: ${(props) => props.theme.text};
+  }
+
+  .git-commit-meta {
+    font-size: 10px;
+    color: ${(props) => props.theme.colors.text.subtext1};
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 1px;
+  }
+
+  .git-commit-hash {
+    font-family: var(--font-mono, monospace);
+    background: ${(props) => props.theme.background.surface1};
+    padding: 0 4px;
+    border-radius: 3px;
+    font-size: 9px;
+  }
+
+  .git-commit-actions {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    opacity: 0.7;
+    flex-shrink: 0;
+  }
+
+  .git-revert-options {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 12px;
+  }
+
+  .git-revert-option {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 8px 10px;
+    border: 1px solid ${(props) => props.theme.border.border1};
+    border-radius: ${(props) => props.theme.border.radius.sm};
+    cursor: pointer;
+    background: ${(props) => props.theme.background.surface0};
+
+    &.selected {
+      border-color: ${(props) => props.theme.primary.solid};
+      background: ${(props) => props.theme.background.surface1};
+    }
+
+    input[type='radio'] {
+      margin-top: 2px;
+      cursor: pointer;
+    }
+  }
+
+  .git-revert-option-text {
+    flex: 1;
+  }
+
+  .git-revert-option-title {
+    font-weight: 600;
+    font-size: 12px;
+    color: ${(props) => props.theme.text};
+  }
+
+  .git-revert-option-desc {
+    font-size: 11px;
+    color: ${(props) => props.theme.colors.text.subtext1};
+    margin-top: 2px;
+    line-height: 1.4;
+  }
+
   .git-file-row:hover .git-file-actions,
   .git-file-row.selected .git-file-actions {
     opacity: 1;
@@ -197,6 +302,16 @@ const StyledWrapper = styled.div`
     display: flex;
     flex-direction: column;
     gap: 6px;
+  }
+
+  .git-commit-actions {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+
+    > * {
+      flex: 1;
+    }
   }
 
   .git-commit-input {
@@ -308,12 +423,49 @@ const StyledWrapper = styled.div`
 
   .git-conflict-banner {
     margin: 8px 10px;
-    padding: 8px;
+    padding: 8px 10px;
     border-radius: ${(props) => props.theme.border.radius.sm};
     background: ${(props) => props.theme.status.danger.background};
     color: ${(props) => props.theme.status.danger.text};
     font-size: 11px;
     line-height: 1.5;
+  }
+
+  .git-conflict-banner-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 4px;
+  }
+
+  .git-error-details-btn {
+    background: transparent;
+    border: 1px solid currentColor;
+    color: inherit;
+    font-size: 10px;
+    font-weight: 500;
+    padding: 2px 7px;
+    border-radius: ${(props) => props.theme.border.radius.sm};
+    cursor: pointer;
+    opacity: 0.85;
+    line-height: 1.2;
+    flex-shrink: 0;
+
+    &:hover {
+      opacity: 1;
+      background: rgba(255, 255, 255, 0.08);
+    }
+  }
+
+  .git-error-details {
+    margin-top: 6px;
+    padding-top: 6px;
+    border-top: 1px dashed rgba(255, 255, 255, 0.2);
+    font-size: 11px;
+    line-height: 1.4;
+    word-break: break-word;
+    opacity: 0.95;
   }
 
   .git-conflict-actions {
@@ -355,6 +507,19 @@ const StyledWrapper = styled.div`
     color: ${(props) => props.theme.colors.text.subtext1};
     font-size: 11px;
     line-height: 1.6;
+  }
+
+  .git-coming-soon-tip {
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px dashed ${(props) => props.theme.border.border2};
+    font-size: 11px;
+    line-height: 1.5;
+    color: ${(props) => props.theme.colors.text.subtext1};
+
+    strong {
+      color: ${(props) => props.theme.text};
+    }
   }
 
   .git-section-title {

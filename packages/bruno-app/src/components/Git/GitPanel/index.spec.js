@@ -178,14 +178,16 @@ describe('GitPanel', () => {
     });
   });
 
-  it('shows the current branch and all four tabs', async () => {
+  it('shows the current branch and all tabs', async () => {
     await renderPanel();
 
     expect(screen.getByText('main')).toBeInTheDocument();
     expect(screen.getByTestId('git-tab-changes')).toBeInTheDocument();
+    expect(screen.getByTestId('git-tab-pull')).toBeInTheDocument();
     expect(screen.getByTestId('git-tab-stash')).toBeInTheDocument();
     expect(screen.getByTestId('git-tab-branch')).toBeInTheDocument();
-    expect(screen.getByTestId('git-tab-conflict')).toBeInTheDocument();
+    expect(screen.getByTestId('git-tab-gitignore')).toBeInTheDocument();
+    expect(screen.getByTestId('git-tab-config')).toBeInTheDocument();
   });
 
   it('counts staged and unstaged files on the Changes tab', async () => {
@@ -194,10 +196,10 @@ describe('GitPanel', () => {
     expect(screen.getByTestId('git-tab-changes')).toHaveTextContent('2');
   });
 
-  it('badges the number of conflicted files', async () => {
+  it('badges the number of conflicted files on the Pull tab', async () => {
     await renderPanel({ conflicted: [{ path: 'a.bru' }] });
 
-    expect(screen.getByTestId('git-tab-conflict')).toHaveTextContent('1');
+    expect(screen.getByTestId('git-tab-pull')).toHaveTextContent('1');
   });
 
   it('refreshes git state on mount', async () => {
@@ -224,10 +226,10 @@ describe('GitPanel', () => {
     expect(screen.getAllByTestId('git-branch-row')).toHaveLength(2);
   });
 
-  it('switches to the Merge tab and shows the Coming Soon block', async () => {
+  it('switches to the Pull tab and shows the Coming Soon block', async () => {
     await renderPanel();
 
-    fireEvent.click(screen.getByTestId('git-tab-conflict'));
+    fireEvent.click(screen.getByTestId('git-tab-pull'));
 
     expect(screen.getByTestId('git-conflict-coming-soon')).toHaveTextContent('Coming soon');
   });
@@ -336,38 +338,30 @@ describe('GitPanel — Changes tab', () => {
   });
 });
 
-describe('GitPanel — Merge tab', () => {
-  it('reports no conflicts when the tree is clean', async () => {
-    await renderPanel();
-
-    fireEvent.click(screen.getByTestId('git-tab-conflict'));
-
-    expect(screen.getByText('No conflicts. Nothing to resolve.')).toBeInTheDocument();
-  });
-
+describe('GitPanel — Pull tab conflicts', () => {
   it('lists conflicted files and offers discard and pull', async () => {
     await renderPanel({ conflicted: [{ path: 'collection/a.bru' }], mergeInProgress: true });
 
-    fireEvent.click(screen.getByTestId('git-tab-conflict'));
+    fireEvent.click(screen.getByTestId('git-tab-pull'));
 
     expect(screen.getByTestId('git-conflict-row')).toBeInTheDocument();
     expect(screen.getByTestId('git-conflict-discard-btn')).toBeEnabled();
-    expect(screen.getByTestId('git-conflict-pull-btn')).toBeEnabled();
+    expect(screen.getByTestId('git-pull-btn')).toBeEnabled();
   });
 
   it('disables pull when no remote is configured', async () => {
     await renderPanel({ conflicted: [{ path: 'a.bru' }], remoteUrl: '' });
 
-    fireEvent.click(screen.getByTestId('git-tab-conflict'));
+    fireEvent.click(screen.getByTestId('git-tab-pull'));
 
-    expect(screen.getByTestId('git-conflict-pull-btn')).toBeDisabled();
+    expect(screen.getByTestId('git-pull-btn')).toBeDisabled();
     expect(screen.getByText(/No remote configured/)).toBeInTheDocument();
   });
 
   it('calls discard-conflict after confirmation', async () => {
     await renderPanel({ conflicted: [{ path: 'a.bru' }], mergeInProgress: true });
 
-    fireEvent.click(screen.getByTestId('git-tab-conflict'));
+    fireEvent.click(screen.getByTestId('git-tab-pull'));
     fireEvent.click(screen.getByTestId('git-conflict-discard-btn'));
 
     const confirmButton = await screen.findByTestId('git-confirm-dialog-submit-btn');
@@ -383,8 +377,8 @@ describe('GitPanel — Merge tab', () => {
   it('calls pull with --ff-only after confirmation', async () => {
     await renderPanel({ conflicted: [{ path: 'a.bru' }], mergeInProgress: true });
 
-    fireEvent.click(screen.getByTestId('git-tab-conflict'));
-    fireEvent.click(screen.getByTestId('git-conflict-pull-btn'));
+    fireEvent.click(screen.getByTestId('git-tab-pull'));
+    fireEvent.click(screen.getByTestId('git-pull-btn'));
 
     const confirmButton = await screen.findByTestId('git-confirm-dialog-submit-btn');
     fireEvent.click(confirmButton);

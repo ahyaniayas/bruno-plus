@@ -18,6 +18,9 @@ const emptyRepo = {
   currentBranch: '',
   branches: [],
   remoteUrl: '',
+  ahead: 0,
+  behind: 0,
+  aheadCommits: [],
   mergeInProgress: false,
   staged: [],
   unstaged: [],
@@ -53,12 +56,15 @@ const gitSlice = createSlice({
     },
 
     setRepoData: (state, action) => {
-      const { collectionUid, currentBranch, branches, remoteUrl, mergeInProgress } = action.payload;
+      const { collectionUid, currentBranch, branches, remoteUrl, mergeInProgress, ahead, behind, aheadCommits } = action.payload;
       const repo = ensureRepo(state, collectionUid);
       repo.currentBranch = currentBranch || '';
       repo.branches = branches || [];
       repo.remoteUrl = remoteUrl || '';
       repo.mergeInProgress = !!mergeInProgress;
+      repo.ahead = ahead || 0;
+      repo.behind = behind || 0;
+      repo.aheadCommits = aheadCommits || [];
     },
 
     setRepoStatus: (state, action) => {

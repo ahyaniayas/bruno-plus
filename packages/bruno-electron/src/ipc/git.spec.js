@@ -6,7 +6,9 @@ jest.mock('fs', () => {
     existsSync: jest.fn(),
     promises: {
       ...actual.promises,
-      rm: jest.fn()
+      rm: jest.fn(),
+      readFile: jest.fn(),
+      writeFile: jest.fn()
     }
   };
 });
@@ -36,7 +38,11 @@ jest.mock('../utils/git', () => ({
   applyStash: jest.fn(),
   dropStash: jest.fn(),
   pullGitChanges: jest.fn(),
+  pushGitChanges: jest.fn(),
+  getAheadBehindCount: jest.fn().mockResolvedValue({ ahead: 0, behind: 0 }),
   resetHardToHead: jest.fn(),
+  undoLastCommit: jest.fn(),
+  revertCommit: jest.fn(),
   isMergeInProgress: jest.fn(),
   abortConflictResolution: jest.fn()
 }));
@@ -48,7 +54,6 @@ jest.mock('../utils/filesystem', () => ({
 const fs = require('fs');
 const path = require('path');
 const gitUtils = require('../utils/git');
-const fsUtils = require('../utils/filesystem');
 const {
   getCollectionGitRemoteUrl,
   handleListRemoteBranches,
@@ -70,7 +75,13 @@ const {
   handleApplyStash,
   handleDropStash,
   handlePull,
+  handlePush,
   handleDiscardConflict,
+  handleGetGitignore,
+  handleSaveGitignore,
+  handleGetReadme,
+  handleSaveReadme,
+  handleRevertCommit,
   resolveRepoFilePath,
   requireBranchName
 } = require('./git');
@@ -227,7 +238,10 @@ describe('handleGetCollectionGitData', () => {
       branches: ['main', 'dev'],
       currentBranch: 'dev',
       remoteUrl: 'https://github.com/org/repo.git',
-      mergeInProgress: false
+      mergeInProgress: false,
+      ahead: 0,
+      behind: 0,
+      aheadCommits: []
     });
   });
 
@@ -685,6 +699,55 @@ describe('handlePull', () => {
   });
 });
 
+describe('handlePush', () => {
+  const mainWindow = { webContents: { send: jest.fn() } };
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    gitUtils.getCollectionGitRootPath.mockReturnValue(REPO);
+    gitUtils.getCurrentGitBranch.mockResolvedValue('main');
+  });
+
+  it('pushes to origin by default', async () => {
+    await handlePush(mainWindow, null, { collectionPath: COLLECTION });
+
+    expect(gitUtils.pushGitChanges).toHaveBeenCalledWith(
+      mainWindow,
+      expect.objectContaining({
+        gitRootPath: REPO,
+        remote: 'origin',
+        remoteBranch: 'main'
+      })
+    );
+  });
+
+  it('uses the supplied remote and branch', async () => {
+    await handlePush(mainWindow, null, {
+      collectionPath: COLLECTION,
+      remote: 'upstream',
+      remoteBranch: 'feat/abc',
+      processUid: 'proc-1'
+    });
+
+    expect(gitUtils.pushGitChanges).toHaveBeenCalledWith(
+      mainWindow,
+      expect.objectContaining({
+        gitRootPath: REPO,
+        remote: 'upstream',
+        remoteBranch: 'feat/abc',
+        processUid: 'proc-1'
+      })
+    );
+  });
+
+  it('refuses a remote that git would read as an option', async () => {
+    await expect(
+      handlePush(mainWindow, null, { collectionPath: COLLECTION, remote: '--exec=evil' })
+    ).rejects.toThrow('Remote is not valid');
+    expect(gitUtils.pushGitChanges).not.toHaveBeenCalled();
+  });
+});
+
 describe('handleDiscardConflict', () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -709,5 +772,166 @@ describe('handleDiscardConflict', () => {
     expect(gitUtils.resetHardToHead).toHaveBeenCalledWith(REPO);
     expect(gitUtils.abortConflictResolution).not.toHaveBeenCalled();
     expect(result).toEqual({ success: true, action: 'reset-hard' });
+  });
+});
+
+describe('handleGetGitignore & handleSaveGitignore', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    gitUtils.getCollectionGitRootPath.mockReturnValue(REPO);
+  });
+
+  it('reads existing .gitignore content', async () => {
+    fs.existsSync.mockReturnValue(true);
+    fs.promises.readFile.mockResolvedValue('node_modules\n.env\n');
+
+    const result = await handleGetGitignore(null, { collectionPath: COLLECTION });
+
+    expect(result).toEqual({
+      content: 'node_modules\n.env\n',
+      exists: true,
+      path: path.join(REPO, '.gitignore')
+    });
+  });
+
+  it('returns empty content when .gitignore does not exist', async () => {
+    fs.existsSync.mockReturnValue(false);
+
+    const result = await handleGetGitignore(null, { collectionPath: COLLECTION });
+
+    expect(result).toEqual({
+      content: '',
+      exists: false,
+      path: path.join(REPO, '.gitignore')
+    });
+  });
+
+  it('saves .gitignore content to disk', async () => {
+    fs.promises.writeFile.mockResolvedValue();
+
+    const result = await handleSaveGitignore(null, { collectionPath: COLLECTION, content: 'target/\n*.log\n' });
+
+    expect(fs.promises.writeFile).toHaveBeenCalledWith(
+      path.join(REPO, '.gitignore'),
+      'target/\n*.log\n',
+      'utf8'
+    );
+    expect(result).toEqual({ success: true, path: path.join(REPO, '.gitignore') });
+  });
+});
+
+describe('handleGetReadme & handleSaveReadme', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    gitUtils.getCollectionGitRootPath.mockReturnValue(REPO);
+  });
+
+  it('reads existing README.md content', async () => {
+    fs.existsSync.mockImplementation((p) => p === path.join(REPO, 'README.md'));
+    fs.promises.readFile.mockResolvedValue('# My Collection\n\nDocs here.');
+
+    const result = await handleGetReadme(null, { collectionPath: COLLECTION });
+
+    expect(result).toEqual({
+      content: '# My Collection\n\nDocs here.',
+      exists: true,
+      path: path.join(REPO, 'README.md'),
+      filename: 'README.md'
+    });
+  });
+
+  it('detects README.MD case variation', async () => {
+    fs.existsSync.mockImplementation((p) => p === path.join(REPO, 'README.MD'));
+    fs.promises.readFile.mockResolvedValue('# UPPERCASE README');
+
+    const result = await handleGetReadme(null, { collectionPath: COLLECTION });
+
+    expect(result).toEqual({
+      content: '# UPPERCASE README',
+      exists: true,
+      path: path.join(REPO, 'README.MD'),
+      filename: 'README.MD'
+    });
+  });
+
+  it('returns empty content when README does not exist', async () => {
+    fs.existsSync.mockReturnValue(false);
+
+    const result = await handleGetReadme(null, { collectionPath: COLLECTION });
+
+    expect(result).toEqual({
+      content: '',
+      exists: false,
+      path: path.join(REPO, 'README.md'),
+      filename: 'README.md'
+    });
+  });
+
+  it('saves README content to disk', async () => {
+    fs.existsSync.mockReturnValue(false);
+    fs.promises.writeFile.mockResolvedValue();
+
+    const result = await handleSaveReadme(null, {
+      collectionPath: COLLECTION,
+      content: '# New Readme Content'
+    });
+
+    expect(fs.promises.writeFile).toHaveBeenCalledWith(
+      path.join(REPO, 'README.md'),
+      '# New Readme Content',
+      'utf8'
+    );
+    expect(result).toEqual({
+      success: true,
+      path: path.join(REPO, 'README.md'),
+      filename: 'README.md'
+    });
+  });
+});
+
+describe('handleRevertCommit', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    gitUtils.getCollectionGitRootPath.mockReturnValue(REPO);
+  });
+
+  it('undoes last commit keeping working tree changes by default', async () => {
+    gitUtils.undoLastCommit.mockResolvedValue('reset success');
+
+    const result = await handleRevertCommit(null, { collectionPath: COLLECTION });
+
+    expect(gitUtils.undoLastCommit).toHaveBeenCalledWith(REPO, { hard: false });
+    expect(result).toEqual({ success: true, action: 'reset-mixed' });
+  });
+
+  it('discards last commit completely when mode is hard', async () => {
+    gitUtils.undoLastCommit.mockResolvedValue('reset hard success');
+
+    const result = await handleRevertCommit(null, { collectionPath: COLLECTION, mode: 'hard' });
+
+    expect(gitUtils.undoLastCommit).toHaveBeenCalledWith(REPO, { hard: true });
+    expect(result).toEqual({ success: true, action: 'reset-hard' });
+  });
+
+  it('calls revertCommit when mode is revert with valid commit hash', async () => {
+    gitUtils.revertCommit.mockResolvedValue('revert success');
+
+    const result = await handleRevertCommit(null, {
+      collectionPath: COLLECTION,
+      commitHash: 'a1b2c3d4e5f6',
+      mode: 'revert'
+    });
+
+    expect(gitUtils.revertCommit).toHaveBeenCalledWith(REPO, 'a1b2c3d4e5f6');
+    expect(result).toEqual({ success: true, action: 'revert', commitHash: 'a1b2c3d4e5f6' });
+  });
+
+  it('rejects invalid commit hash', async () => {
+    await expect(
+      handleRevertCommit(null, {
+        collectionPath: COLLECTION,
+        commitHash: 'bad hash with spaces;'
+      })
+    ).rejects.toThrow(/Invalid commit hash/);
   });
 });

@@ -16,6 +16,7 @@ const {
   getCollectionGitBranches,
   getCurrentGitBranch,
   getDefaultGitBranch,
+  getAheadBehindCount,
   getChangedFilesInCollectionGit,
   stageChanges,
   unstageChanges,
@@ -29,7 +30,10 @@ const {
   applyStash,
   dropStash,
   pullGitChanges,
+  pushGitChanges,
   resetHardToHead,
+  undoLastCommit,
+  revertCommit,
   isMergeInProgress
 } = require('../utils/git');
 const { createDirectory, removeDirectory } = require('../utils/filesystem');
@@ -152,11 +156,12 @@ const requireStashIndex = (stashIndex) => {
 const handleGetCollectionGitData = async (event, { collectionPath } = {}) => {
   const gitRootPath = resolveGitRootPath(collectionPath);
 
-  const [branches, currentBranch, remoteUrl, defaultBranch] = await Promise.all([
+  const [branches, currentBranch, remoteUrl, defaultBranch, aheadBehind] = await Promise.all([
     getCollectionGitBranches(gitRootPath).catch(() => []),
     getCurrentGitBranch(gitRootPath).catch(() => ''),
     getCollectionGitRepoUrl(gitRootPath).catch(() => ''),
-    getDefaultGitBranch(gitRootPath).catch(() => '')
+    getDefaultGitBranch(gitRootPath).catch(() => ''),
+    getAheadBehindCount(gitRootPath).catch(() => ({ ahead: 0, behind: 0 }))
   ]);
 
   // A freshly initialised repo has no commits yet, so `branchLocal` returns
@@ -170,7 +175,10 @@ const handleGetCollectionGitData = async (event, { collectionPath } = {}) => {
     branches: resolvedBranches,
     currentBranch: resolvedBranch,
     remoteUrl: remoteUrl || '',
-    mergeInProgress: isMergeInProgress(gitRootPath)
+    mergeInProgress: isMergeInProgress(gitRootPath),
+    ahead: aheadBehind?.ahead || 0,
+    behind: aheadBehind?.behind || 0,
+    aheadCommits: aheadBehind?.aheadCommits || []
   };
 };
 
@@ -306,6 +314,101 @@ const handleDiscardConflict = async (event, { collectionPath } = {}) => {
   return { success: true, action: 'reset-hard' };
 };
 
+const handleRevertCommit = async (event, { collectionPath, commitHash, mode = 'undo' } = {}) => {
+  const gitRootPath = resolveGitRootPath(collectionPath);
+
+  if (commitHash && !/^[0-9a-fA-F]{4,40}$/.test(commitHash)) {
+    throw new Error('Invalid commit hash');
+  }
+
+  if (mode === 'revert') {
+    if (!commitHash) {
+      throw new Error('Commit hash is required to revert a commit');
+    }
+    await revertCommit(gitRootPath, commitHash);
+    return { success: true, action: 'revert', commitHash };
+  }
+
+  if (mode === 'hard') {
+    await undoLastCommit(gitRootPath, { hard: true });
+    return { success: true, action: 'reset-hard' };
+  }
+
+  // Default: undo commit (mixed reset), keeps files in working directory
+  await undoLastCommit(gitRootPath, { hard: false });
+  return { success: true, action: 'reset-mixed' };
+};
+
+const handleGetGitignore = async (event, { collectionPath } = {}) => {
+  const gitRootPath = resolveGitRootPath(collectionPath);
+  const gitignorePath = path.join(gitRootPath, '.gitignore');
+
+  if (fs.existsSync(gitignorePath)) {
+    const content = await fs.promises.readFile(gitignorePath, 'utf8');
+    return { content, exists: true, path: gitignorePath };
+  }
+
+  if (collectionPath && collectionPath !== gitRootPath) {
+    const collGitignore = path.join(collectionPath, '.gitignore');
+    if (fs.existsSync(collGitignore)) {
+      const content = await fs.promises.readFile(collGitignore, 'utf8');
+      return { content, exists: true, path: collGitignore };
+    }
+  }
+
+  return { content: '', exists: false, path: gitignorePath };
+};
+
+const handleSaveGitignore = async (event, { collectionPath, content = '' } = {}) => {
+  const gitRootPath = resolveGitRootPath(collectionPath);
+  const gitignorePath = path.join(gitRootPath, '.gitignore');
+
+  await fs.promises.writeFile(gitignorePath, content, 'utf8');
+  return { success: true, path: gitignorePath };
+};
+
+const findReadmeFile = (dir) => {
+  if (!dir) return null;
+  const candidates = ['README.md', 'README.MD', 'readme.md', 'Readme.md', 'README'];
+  for (const candidate of candidates) {
+    const candidatePath = path.join(dir, candidate);
+    if (fs.existsSync(candidatePath)) {
+      return candidatePath;
+    }
+  }
+  return null;
+};
+
+const handleGetReadme = async (event, { collectionPath } = {}) => {
+  const gitRootPath = resolveGitRootPath(collectionPath);
+  let readmePath = findReadmeFile(gitRootPath);
+
+  if (readmePath && fs.existsSync(readmePath)) {
+    const content = await fs.promises.readFile(readmePath, 'utf8');
+    return { content, exists: true, path: readmePath, filename: path.basename(readmePath) };
+  }
+
+  if (collectionPath && collectionPath !== gitRootPath) {
+    readmePath = findReadmeFile(collectionPath);
+    if (readmePath && fs.existsSync(readmePath)) {
+      const content = await fs.promises.readFile(readmePath, 'utf8');
+      return { content, exists: true, path: readmePath, filename: path.basename(readmePath) };
+    }
+  }
+
+  const defaultPath = path.join(gitRootPath, 'README.md');
+  return { content: '', exists: false, path: defaultPath, filename: 'README.md' };
+};
+
+const handleSaveReadme = async (event, { collectionPath, content = '' } = {}) => {
+  const gitRootPath = resolveGitRootPath(collectionPath);
+  const existing = findReadmeFile(gitRootPath);
+  const targetPath = existing || path.join(gitRootPath, 'README.md');
+
+  await fs.promises.writeFile(targetPath, content, 'utf8');
+  return { success: true, path: targetPath, filename: path.basename(targetPath) };
+};
+
 /**
  * Create a new repository for a collection that is not tracked yet.
  *
@@ -387,6 +490,31 @@ const handleGetRemotes = async (event, { collectionPath } = {}) => {
 };
 
 /**
+ * Push the current branch to origin.
+ *
+ * `pushGitChanges` sets the upstream automatically when the branch has none,
+ * so a repo created from the Config tab pushes on the first attempt.
+ */
+const handlePush = async (mainWindow, event, { collectionPath, processUid, remote, remoteBranch } = {}) => {
+  const gitRootPath = resolveGitRootPath(collectionPath);
+  const remoteName = requireNonEmptyString(remote || 'origin', 'Remote').trim();
+  if (remoteName.startsWith('-')) {
+    throw new Error('Remote is not valid');
+  }
+
+  const branchName = requireBranchName(remoteBranch || (await getCurrentGitBranch(gitRootPath)));
+
+  await pushGitChanges(mainWindow, {
+    gitRootPath,
+    processUid,
+    remote: remoteName,
+    remoteBranch: branchName
+  });
+
+  return { success: true, branchName };
+};
+
+/**
  * Delete the `.git` directory for a collection, turning it back into a plain
  * folder. Destructive: history, branches and stashes are gone.
  *
@@ -451,7 +579,13 @@ const registerGitIpc = (mainWindow) => {
   ipcMain.handle('renderer:git-stash-apply', handleApplyStash);
   ipcMain.handle('renderer:git-stash-drop', handleDropStash);
   ipcMain.handle('renderer:git-pull', (event, payload) => handlePull(mainWindow, event, payload));
+  ipcMain.handle('renderer:git-push', (event, payload) => handlePush(mainWindow, event, payload));
   ipcMain.handle('renderer:git-discard-conflict', handleDiscardConflict);
+  ipcMain.handle('renderer:git-get-gitignore', handleGetGitignore);
+  ipcMain.handle('renderer:git-save-gitignore', handleSaveGitignore);
+  ipcMain.handle('renderer:git-get-readme', handleGetReadme);
+  ipcMain.handle('renderer:git-save-readme', handleSaveReadme);
+  ipcMain.handle('renderer:git-revert-commit', handleRevertCommit);
 };
 
 module.exports = registerGitIpc;
@@ -475,6 +609,12 @@ module.exports.handleListStashes = handleListStashes;
 module.exports.handleApplyStash = handleApplyStash;
 module.exports.handleDropStash = handleDropStash;
 module.exports.handlePull = handlePull;
+module.exports.handlePush = handlePush;
 module.exports.handleDiscardConflict = handleDiscardConflict;
+module.exports.handleGetGitignore = handleGetGitignore;
+module.exports.handleSaveGitignore = handleSaveGitignore;
+module.exports.handleGetReadme = handleGetReadme;
+module.exports.handleSaveReadme = handleSaveReadme;
+module.exports.handleRevertCommit = handleRevertCommit;
 module.exports.resolveRepoFilePath = resolveRepoFilePath;
 module.exports.requireBranchName = requireBranchName;

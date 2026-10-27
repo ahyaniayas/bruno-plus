@@ -269,6 +269,33 @@ const resetHardToHead = async (gitRootPath) => {
   });
 };
 
+const undoLastCommit = async (gitRootPath, { hard = false } = {}) => {
+  return new Promise((resolve, reject) => {
+    const git = getSimpleGitInstanceForPath(gitRootPath);
+    const args = hard ? ['reset', '--hard', 'HEAD~1'] : ['reset', 'HEAD~1'];
+    git.raw(args, (err, res) => {
+      if (err) {
+        reject(err);
+        return;
+      }
+      resolve(res);
+    });
+  });
+};
+
+const revertCommit = async (gitRootPath, commitHash) => {
+  return new Promise((resolve, reject) => {
+    const git = getSimpleGitInstanceForPath(gitRootPath);
+    git.raw(['revert', '--no-edit', commitHash], (err, res) => {
+      if (err) {
+        reject(err);
+        return;
+      }
+      resolve(res);
+    });
+  });
+};
+
 const isMergeInProgress = (gitRootPath) => {
   return fs.existsSync(path.join(gitRootPath, '.git', 'MERGE_HEAD'));
 };
@@ -1911,5 +1938,7 @@ module.exports = {
   getWorkingFileContentForVisualDiff,
   getStashFileContentForVisualDiff,
   resetHardToHead,
+  undoLastCommit,
+  revertCommit,
   isMergeInProgress
 };
