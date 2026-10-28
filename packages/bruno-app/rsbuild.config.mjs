@@ -34,6 +34,9 @@ export default defineConfig({
       include: [/\.md$/]
     })
   ],
+  output: {
+    assetPrefix: 'auto'
+  },
   source: {
     define: {
       __BRUNO_BENCHMARK__: JSON.stringify(process.env.BRUNO_BENCHMARK === 'true')

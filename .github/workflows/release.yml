@@ -58,6 +58,9 @@ jobs:
           mkdir -p packages/bruno-electron/web
           cp -r packages/bruno-app/dist/* packages/bruno-electron/web/
           find packages/bruno-electron/web -name '*.map' -type f -delete
+          # Ensure relative paths for file:// protocol in Electron
+          find packages/bruno-electron/web -name '*.html' -type f -exec sed -i.bak -e 's@src="/@src="@g' -e 's@href="/@href="@g' {} +
+          rm -f packages/bruno-electron/web/*.bak
 
       - name: Package
         shell: bash
