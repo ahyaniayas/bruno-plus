@@ -55,6 +55,39 @@ const config = {
       }
     ]
   },
+  dmg: {
+    window: {
+      width: 540,
+      height: 440
+    },
+    contents: [
+      {
+        x: 130,
+        y: 180,
+        type: 'file'
+      },
+      {
+        x: 410,
+        y: 180,
+        type: 'link',
+        path: '/Applications'
+      },
+      {
+        x: 180,
+        y: 330,
+        type: 'file',
+        path: 'Fix-Damaged-App.command',
+        name: 'Fix-Damaged-App.command'
+      },
+      {
+        x: 360,
+        y: 330,
+        type: 'file',
+        path: 'Instructions.txt',
+        name: 'Instructions.txt'
+      }
+    ]
+  },
   linux: {
     artifactName: '${name}_${version}_${arch}_${os}.${ext}',
     icon: 'resources/icons/png',

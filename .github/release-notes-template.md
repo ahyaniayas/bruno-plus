@@ -18,11 +18,10 @@ warning the first time. Right-click → Open bypasses it; a normal double-click 
 
 If macOS reports that the app is "damaged" (Gatekeeper quarantine):
 
-**Option A: Using the Fix Script (Quickest)**
-1. Move **Bruno Plus** into your `/Applications` folder.
-2. Download `Fix-Damaged-App.command` from the Assets below.
-3. Right-click `Fix-Damaged-App.command` → select **Open** → click **Open** (required by macOS for downloaded scripts).
-4. Follow the prompt in the Terminal window that opens, then launch Bruno Plus.
+**Option A: Using the Fix Script inside the DMG / ZIP (Quickest)**
+1. Drag **Bruno Plus** into your `/Applications` folder.
+2. Inside the opened DMG (or extracted ZIP), right-click **Fix-Damaged-App.command** → select **Open** → click **Open** (required by macOS for scripts).
+3. Follow the prompt in the Terminal window that opens, then launch Bruno Plus.
 
 **Option B: Using Terminal manually**
 Open Terminal and run:

@@ -11,11 +11,10 @@ echo ""
 
 APP_PATH="/Applications/Bruno Plus.app"
 
-# If not found in /Applications, check current folder or ~/Downloads
+# If not found in /Applications, check ~/Applications or ~/Downloads
 if [ ! -d "$APP_PATH" ]; then
-  SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-  if [ -d "$SCRIPT_DIR/Bruno Plus.app" ]; then
-    APP_PATH="$SCRIPT_DIR/Bruno Plus.app"
+  if [ -d "$HOME/Applications/Bruno Plus.app" ]; then
+    APP_PATH="$HOME/Applications/Bruno Plus.app"
   elif [ -d "$HOME/Downloads/Bruno Plus.app" ]; then
     APP_PATH="$HOME/Downloads/Bruno Plus.app"
   fi
@@ -25,20 +24,18 @@ if [ -d "$APP_PATH" ]; then
   echo "Found application at:"
   echo "  $APP_PATH"
   echo ""
-  echo "Removing quarantine attributes..."
+  echo "Removing macOS quarantine attribute..."
   xattr -cr "$APP_PATH"
   echo ""
-  echo "✓ Done! Quarantine attributes removed."
-  echo "You can now open Bruno Plus normally."
+  echo "✓ Successfully fixed! Quarantine attribute removed."
+  echo "You can now launch Bruno Plus normally."
 else
-  echo "✕ Error: Could not locate 'Bruno Plus.app'."
+  echo "✕ Bruno Plus was not found in /Applications!"
   echo ""
   echo "Please follow these steps:"
-  echo "1. Open the downloaded DMG file."
-  echo "2. Drag 'Bruno Plus' into your Applications folder."
-  echo "3. Run this script again."
+  echo "1. First, drag 'Bruno Plus.app' into your 'Applications' folder."
+  echo "2. Once copied, run this script again."
 fi
 
 echo ""
 read -p "Press [Enter] to exit..."
-

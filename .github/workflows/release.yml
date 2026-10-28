@@ -103,8 +103,12 @@ jobs:
           npx electron-builder --${{ matrix.platform }} --config electron-builder-config.js --publish never
 
           if [ "${{ matrix.platform }}" = "mac" ]; then
-            cp resources/Fix-Damaged-App.command out/Fix-Damaged-App.command
-            chmod +x out/Fix-Damaged-App.command
+            for zipfile in out/*_mac.zip; do
+              if [ -f "$zipfile" ]; then
+                echo "Adding fix script and instructions to $zipfile..."
+                zip -j -u "$zipfile" resources/Fix-Damaged-App.command resources/Instructions.txt
+              fi
+            done
           fi
 
       - name: Upload installers
@@ -120,7 +124,6 @@ jobs:
             packages/bruno-electron/out/*.exe
             packages/bruno-electron/out/*.AppImage
             packages/bruno-electron/out/*.deb
-            packages/bruno-electron/out/*.command
 
   release:
     name: Publish release

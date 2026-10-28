@@ -1,0 +1,27 @@
+==================================================
+           Bruno Plus - macOS Installation
+==================================================
+
+1. INSTALLATION:
+   Drag "Bruno Plus.app" into the "Applications" folder.
+
+2. FIRST LAUNCH:
+   Open your Applications folder:
+   • Right-click (or Control-click) "Bruno Plus.app"
+   • Select "Open"
+   • Click "Open" in the dialog.
+
+3. IF MACOS SAYS THE APP IS "DAMAGED":
+   This occurs because the build is not notarized with
+   an Apple Developer ID certificate.
+
+   To fix it:
+   a. Make sure you already dragged "Bruno Plus.app"
+      into the "Applications" folder.
+   b. Right-click "Fix-Damaged-App.command"
+      -> Select "Open"
+      -> Click "Open" to run the script.
+   c. Press [Enter] when done, then launch Bruno Plus.
+
+   Alternatively, run this in Terminal:
+      xattr -cr "/Applications/Bruno Plus.app"
