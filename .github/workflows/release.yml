@@ -102,6 +102,11 @@ jobs:
 
           npx electron-builder --${{ matrix.platform }} --config electron-builder-config.js --publish never
 
+          if [ "${{ matrix.platform }}" = "mac" ]; then
+            cp resources/Fix-Damaged-App.command out/Fix-Damaged-App.command
+            chmod +x out/Fix-Damaged-App.command
+          fi
+
       - name: Upload installers
         uses: actions/upload-artifact@v4
         with:
@@ -115,6 +120,7 @@ jobs:
             packages/bruno-electron/out/*.exe
             packages/bruno-electron/out/*.AppImage
             packages/bruno-electron/out/*.deb
+            packages/bruno-electron/out/*.command
 
   release:
     name: Publish release
