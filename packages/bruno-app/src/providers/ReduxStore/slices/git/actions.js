@@ -289,3 +289,48 @@ export const revertCommit = (collectionUid, collectionPath, { commitHash, mode =
   )(dispatch);
   return result;
 };
+
+export const getFileContent = (collectionPath, filePath) => async () => {
+  const result = await invoke('renderer:git-get-file-content', { collectionPath, filePath });
+  return result?.content || '';
+};
+
+export const saveFileContent = (collectionUid, collectionPath, filePath, content) => async (dispatch) => {
+  const result = await runMutation(
+    collectionUid,
+    collectionPath,
+    'renderer:git-save-file-content',
+    { filePath, content },
+    'Failed to save file'
+  )(dispatch);
+  return result;
+};
+
+export const resolveAndStageFile = (collectionUid, collectionPath, filePath, content) => async (dispatch) => {
+  await invoke('renderer:git-save-file-content', { collectionPath, filePath, content });
+  await invoke('renderer:git-stage', { collectionPath, filePaths: [filePath] });
+  await dispatch(refreshRepo(collectionUid, collectionPath));
+  return { success: true };
+};
+
+export const continueMergeAction = (collectionUid, collectionPath, commitMessage) => async (dispatch) => {
+  const result = await runMutation(
+    collectionUid,
+    collectionPath,
+    'renderer:git-continue-merge',
+    { commitMessage },
+    'Failed to complete merge'
+  )(dispatch);
+  return result;
+};
+
+export const abortMergeAction = (collectionUid, collectionPath) => async (dispatch) => {
+  const result = await runMutation(
+    collectionUid,
+    collectionPath,
+    'renderer:git-abort-merge',
+    {},
+    'Failed to abort merge'
+  )(dispatch);
+  return result;
+};

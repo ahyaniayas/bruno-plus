@@ -231,7 +231,7 @@ describe('GitPanel', () => {
 
     fireEvent.click(screen.getByTestId('git-tab-pull'));
 
-    expect(screen.getByTestId('git-conflict-coming-soon')).toHaveTextContent('Coming soon');
+    expect(screen.getByTestId('git-conflict-coming-soon')).toBeInTheDocument();
   });
 });
 

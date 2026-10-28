@@ -44,7 +44,8 @@ jest.mock('../utils/git', () => ({
   undoLastCommit: jest.fn(),
   revertCommit: jest.fn(),
   isMergeInProgress: jest.fn(),
-  abortConflictResolution: jest.fn()
+  abortConflictResolution: jest.fn(),
+  continueMerge: jest.fn()
 }));
 jest.mock('../utils/filesystem', () => ({
   createDirectory: jest.fn(),
@@ -82,6 +83,10 @@ const {
   handleGetReadme,
   handleSaveReadme,
   handleRevertCommit,
+  handleGetFileContent,
+  handleSaveFileContent,
+  handleContinueMerge,
+  handleAbortMerge,
   resolveRepoFilePath,
   requireBranchName
 } = require('./git');
@@ -933,5 +938,80 @@ describe('handleRevertCommit', () => {
         commitHash: 'bad hash with spaces;'
       })
     ).rejects.toThrow(/Invalid commit hash/);
+  });
+});
+
+describe('handleGetFileContent & handleSaveFileContent', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    gitUtils.getCollectionGitRootPath.mockReturnValue(REPO);
+  });
+
+  it('reads file content using resolved path', async () => {
+    fs.promises.readFile.mockResolvedValue('file content');
+
+    const result = await handleGetFileContent(null, {
+      collectionPath: COLLECTION,
+      filePath: 'collection/a.bru'
+    });
+
+    expect(fs.promises.readFile).toHaveBeenCalledWith(path.resolve(REPO, 'collection/a.bru'), 'utf8');
+    expect(result).toEqual({ content: 'file content' });
+  });
+
+  it('saves file content using resolved path', async () => {
+    fs.promises.writeFile.mockResolvedValue();
+
+    const result = await handleSaveFileContent(null, {
+      collectionPath: COLLECTION,
+      filePath: 'collection/a.bru',
+      content: 'resolved content'
+    });
+
+    expect(fs.promises.writeFile).toHaveBeenCalledWith(
+      path.resolve(REPO, 'collection/a.bru'),
+      'resolved content',
+      'utf8'
+    );
+    expect(result).toEqual({ success: true });
+  });
+});
+
+describe('handleContinueMerge & handleAbortMerge', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    gitUtils.getCollectionGitRootPath.mockReturnValue(REPO);
+  });
+
+  it('continues merge when merge is in progress', async () => {
+    gitUtils.isMergeInProgress.mockReturnValue(true);
+    gitUtils.continueMerge.mockResolvedValue('merge complete');
+
+    const result = await handleContinueMerge(null, {
+      collectionPath: COLLECTION,
+      commitMessage: 'Merge branch main'
+    });
+
+    expect(gitUtils.continueMerge).toHaveBeenCalledWith(REPO, [], 'Merge branch main');
+    expect(result).toEqual({ success: true });
+  });
+
+  it('refuses to continue merge when no merge is in progress', async () => {
+    gitUtils.isMergeInProgress.mockReturnValue(false);
+
+    await expect(
+      handleContinueMerge(null, {
+        collectionPath: COLLECTION
+      })
+    ).rejects.toThrow(/No merge in progress/);
+  });
+
+  it('aborts merge via abortConflictResolution', async () => {
+    gitUtils.abortConflictResolution.mockResolvedValue('aborted');
+
+    const result = await handleAbortMerge(null, { collectionPath: COLLECTION });
+
+    expect(gitUtils.abortConflictResolution).toHaveBeenCalledWith(REPO);
+    expect(result).toEqual({ success: true });
   });
 });

@@ -30,12 +30,12 @@ Reachable from the top bar of any collection. The label shows `Git Plus` before 
 | Tab | What it does |
 | --- | --- |
 | **Changes** | Stage / unstage files (individually or all at once), discard changes, commit, inline diff viewer, and **push** the current branch |
-| **Pull** | Pull from `origin` with fast-forward-only (default) or merge strategy |
+| **Pull** | Pull from `origin` with fast-forward-only (default) or merge strategy, with interactive VS Code-style conflict resolution |
 | **Stash** | Create, apply and drop stashes |
 | **Branch** | List, create and switch branches |
 | **Config** | Edit or remove the `origin` remote |
 | **Gitignore / Readme** | Edit `.gitignore` and the collection readme in-app |
-| **Merge** | Conflict detection plus two escape hatches: discard local changes, or pull again |
+| **Merge & Conflict Resolution** | Integrated conflict resolver editor with Accept Current / Incoming / Both changes and complete/abort merge |
 
 ### Initialize Git
 
@@ -57,8 +57,6 @@ inside a larger repo cannot destroy that repo's history.
 
 ## Not implemented
 
-- **Three-way merge editor and per-hunk conflict resolution.** Conflict *detection* works, and the Merge tab
-  offers discard-local and pull. Composing merged content by hand is not built.
 - **Fetch UI** and **commit history / graph UI.** The backend functions exist but are not wired.
 - **Rebranding of the `bruno://` protocol.** It is tied to upstream's OAuth2 callback host.
 

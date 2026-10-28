@@ -108,8 +108,8 @@ jobs:
           if [ "${{ matrix.platform }}" = "mac" ]; then
             for zipfile in out/*_mac.zip; do
               if [ -f "$zipfile" ]; then
-                echo "Adding fix script and instructions to $zipfile..."
-                zip -j -u "$zipfile" resources/Fix-Damaged-App.command resources/Instructions.txt
+                echo "Adding instructions to $zipfile..."
+                zip -j -u "$zipfile" resources/Instructions.txt
               fi
             done
           fi

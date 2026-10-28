@@ -18,17 +18,14 @@ warning the first time. Right-click → Open bypasses it; a normal double-click 
 
 If macOS reports that the app is "damaged" (Gatekeeper quarantine):
 
-**Option A: Using the Fix Script inside the DMG / ZIP (Quickest)**
-1. Drag **Bruno Plus** into your `/Applications` folder.
-2. Inside the opened DMG (or extracted ZIP), right-click **Fix-Damaged-App.command** → select **Open** → click **Open** (required by macOS for scripts).
-3. Follow the prompt in the Terminal window that opens, then launch Bruno Plus.
-
-**Option B: Using Terminal manually**
-Open Terminal and run:
+1. Make sure you already dragged **Bruno Plus** into your `/Applications` folder.
+2. Open Terminal and run:
 
 ```bash
 xattr -cr "/Applications/Bruno Plus.app"
 ```
+
+Then open Bruno Plus from Applications.
 
 ### Windows
 
@@ -65,14 +62,14 @@ mv ~/Documents/bruno ~/Documents/brunoplus
 See the [README](https://github.com/ahyaniayas/brunoplus#readme) for the full list of what the
 fork adds. Short version:
 
-- **Git Plus panel** — Changes, Pull, Stash, Branch, Config, Gitignore/Readme and Merge tabs
+- **Git Plus panel** — Changes, Pull, Stash, Branch, Config, Gitignore, and Readme tabs
+- **Git Pull & Strategies** — Pull from remote with Fast-Forward (`--ff-only`, default) or Merge (`--no-rebase`)
+- **Interactive Conflict Resolver (Ready!)** — In-app merge conflict resolver editor modeled after VS Code with inline CodeLens actions (*Accept Current*, *Accept Incoming*, *Accept Both Changes*), syntax highlighting, conflict navigation, manual editing, and auto-staging
 - **Initialize Git** — connect a collection to a remote and branch in one step
 - **Disconnect Git** — remove version control while keeping the collection files
 
 ## Not implemented
 
-- Three-way merge editor and per-hunk conflict resolution. Conflict *detection* works, and the
-  Merge tab offers discard-local and pull.
 - Commit history / graph view and a fetch UI.
 
 ## Known limitations

@@ -155,7 +155,7 @@ describe('GitPanel — Pull tab', () => {
 
     fireEvent.click(screen.getByTestId('git-tab-pull'));
 
-    expect(screen.getByText(/Fast-forward only/)).toBeInTheDocument();
+    expect(screen.getAllByText(/Fast-forward/)[0]).toBeInTheDocument();
     expect(screen.getByTestId('git-conflict-coming-soon')).toBeInTheDocument();
     expect(screen.getByTestId('git-conflict-external-tip')).toBeInTheDocument();
     expect(screen.getByTestId('git-conflict-external-tip')).toHaveTextContent(/VS Code/);
@@ -174,6 +174,105 @@ describe('GitPanel — Pull tab', () => {
         remoteBranch: 'main',
         strategy: '--ff-only',
         processUid: undefined
+      });
+    });
+  });
+
+  it('supports selecting merge strategy and pulls with --no-rebase', async () => {
+    await renderPanel();
+
+    fireEvent.click(screen.getByTestId('git-tab-pull'));
+
+    const mergeRadio = screen.getByTestId('git-strategy-merge-radio');
+    expect(mergeRadio).not.toBeChecked();
+    fireEvent.click(mergeRadio);
+    expect(mergeRadio).toBeChecked();
+
+    fireEvent.click(screen.getByTestId('git-pull-btn'));
+    fireEvent.click(await screen.findByTestId('git-confirm-dialog-submit-btn'));
+
+    await waitFor(() => {
+      expect(window.ipcRenderer.invoke).toHaveBeenCalledWith('renderer:git-pull', {
+        collectionPath: PATH,
+        remoteBranch: 'main',
+        strategy: '--no-rebase',
+        processUid: undefined
+      });
+    });
+  });
+
+  it('opens conflict resolver editor modal and resolves conflicts', async () => {
+    const originalInvoke = window.ipcRenderer.invoke.getMockImplementation();
+    window.ipcRenderer.invoke.mockImplementation((channel, payload) => {
+      if (channel === 'renderer:git-get-file-content') {
+        return Promise.resolve({
+          content: 'line1\n<<<<<<< HEAD\nmy code\n=======\ntheir code\n>>>>>>> origin/main\nline2'
+        });
+      }
+      if (channel === 'renderer:git-save-file-content') {
+        return Promise.resolve({ success: true });
+      }
+      return originalInvoke(channel, payload);
+    });
+
+    await renderPanel({ conflicted: [{ path: 'conflict.bru' }] });
+
+    fireEvent.click(screen.getByTestId('git-tab-pull'));
+    fireEvent.click(screen.getByTestId('git-resolve-btn-conflict.bru'));
+
+    await waitFor(() => {
+      expect(screen.getByTestId('git-conflict-resolver-modal')).toBeInTheDocument();
+      expect(screen.getByTestId('git-conflict-fallback-list')).toBeInTheDocument();
+    });
+
+    // Click Accept Current
+    fireEvent.click(screen.getByTestId('git-conflict-resolve-current-btn-1'));
+
+    // Verify textarea content now has resolved code
+    const textarea = screen.getByTestId('git-conflict-editor-textarea');
+    expect(textarea.value).toBe('line1\nmy code\nline2');
+
+    // Save & mark as resolved
+    const saveBtn = screen.getByTestId('git-conflict-save-btn');
+    fireEvent.click(saveBtn);
+
+    await waitFor(() => {
+      expect(window.ipcRenderer.invoke).toHaveBeenCalledWith('renderer:git-save-file-content', {
+        collectionPath: PATH,
+        filePath: 'conflict.bru',
+        content: 'line1\nmy code\nline2'
+      });
+      expect(window.ipcRenderer.invoke).toHaveBeenCalledWith('renderer:git-stage', {
+        collectionPath: PATH,
+        filePaths: ['conflict.bru']
+      });
+    });
+  });
+
+  it('supports completing and aborting merge in progress', async () => {
+    await renderPanel({ mergeInProgress: true, conflicted: [] });
+
+    fireEvent.click(screen.getByTestId('git-tab-pull'));
+
+    expect(screen.getByTestId('git-merge-ready-box')).toBeInTheDocument();
+
+    const completeBtn = screen.getByTestId('git-complete-merge-btn');
+    fireEvent.click(completeBtn);
+
+    await waitFor(() => {
+      expect(window.ipcRenderer.invoke).toHaveBeenCalledWith('renderer:git-continue-merge', {
+        collectionPath: PATH,
+        commitMessage: expect.stringContaining('Merge branch \'main\'')
+      });
+    });
+
+    const abortBtn = screen.getByTestId('git-conflict-discard-btn');
+    fireEvent.click(abortBtn);
+    fireEvent.click(await screen.findByTestId('git-confirm-dialog-submit-btn'));
+
+    await waitFor(() => {
+      expect(window.ipcRenderer.invoke).toHaveBeenCalledWith('renderer:git-discard-conflict', {
+        collectionPath: PATH
       });
     });
   });

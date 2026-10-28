@@ -13,15 +13,9 @@
 
 3. IF MACOS SAYS THE APP IS "DAMAGED":
    This occurs because the build is not notarized with
-   an Apple Developer ID certificate.
+   an Apple Developer ID certificate (Gatekeeper quarantine).
 
-   To fix it:
-   a. Make sure you already dragged "Bruno Plus.app"
-      into the "Applications" folder.
-   b. Right-click "Fix-Damaged-App.command"
-      -> Select "Open"
-      -> Click "Open" to run the script.
-   c. Press [Enter] when done, then launch Bruno Plus.
-
-   Alternatively, run this in Terminal:
+   To fix it, open Terminal and run:
       xattr -cr "/Applications/Bruno Plus.app"
+
+   Then launch Bruno Plus from your Applications folder.

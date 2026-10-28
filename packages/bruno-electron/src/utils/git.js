@@ -1133,7 +1133,9 @@ const continueMerge = async (gitRootPath, conflictedFiles, commitMessage) => {
       // Step 2: Stage the conflicted files
       const filePaths = conflictedFiles.map((f) => f.path);
       const fullPaths = filePaths.map((p) => path.join(gitRootPath, p));
-      await stageChanges(gitRootPath, fullPaths);
+      if (fullPaths.length > 0) {
+        await stageChanges(gitRootPath, fullPaths);
+      }
 
       // Step 3: Write commit message to .git/MERGE_MSG
       const mergeMsgPath = path.join(gitRootPath, '.git', 'MERGE_MSG');

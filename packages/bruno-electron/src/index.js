@@ -19,6 +19,8 @@ const { format } = require('url');
 const { BrowserWindow, app, session, Menu, globalShortcut, ipcMain, nativeTheme, shell } = require('electron');
 const { setContentSecurityPolicy } = require('electron-util');
 
+app.name = 'Bruno Plus';
+
 if (isDev && process.env.ELECTRON_USER_DATA_PATH) {
   console.debug('`ELECTRON_USER_DATA_PATH` found, modifying `userData` path: \n'
     + `\t${app.getPath('userData')} -> ${process.env.ELECTRON_USER_DATA_PATH}`);
@@ -270,6 +272,10 @@ app.on('ready', async () => {
     // we will bring this back
     // see https://github.com/usebruno/bruno/issues/440
     // autoHideMenuBar: true
+  });
+
+  mainWindow.on('page-title-updated', (e) => {
+    e.preventDefault();
   });
 
   if (maximized) {

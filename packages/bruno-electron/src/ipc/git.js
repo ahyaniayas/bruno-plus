@@ -367,6 +367,38 @@ const handleSaveGitignore = async (event, { collectionPath, content = '' } = {})
   return { success: true, path: gitignorePath };
 };
 
+const handleGetFileContent = async (event, { collectionPath, filePath } = {}) => {
+  const gitRootPath = resolveGitRootPath(collectionPath);
+  const absolutePath = resolveRepoFilePath(gitRootPath, filePath);
+  const content = await fs.promises.readFile(absolutePath, 'utf8');
+  return { content };
+};
+
+const handleSaveFileContent = async (event, { collectionPath, filePath, content = '' } = {}) => {
+  const gitRootPath = resolveGitRootPath(collectionPath);
+  const absolutePath = resolveRepoFilePath(gitRootPath, filePath);
+  await fs.promises.writeFile(absolutePath, content, 'utf8');
+  return { success: true };
+};
+
+const handleContinueMerge = async (event, { collectionPath, commitMessage } = {}) => {
+  const gitRootPath = resolveGitRootPath(collectionPath);
+  if (!isMergeInProgress(gitRootPath)) {
+    throw new Error('No merge in progress');
+  }
+  const message = typeof commitMessage === 'string' && commitMessage.trim() ? commitMessage.trim() : 'Merge branch';
+  const { continueMerge } = require('../utils/git');
+  await continueMerge(gitRootPath, [], message);
+  return { success: true };
+};
+
+const handleAbortMerge = async (event, { collectionPath } = {}) => {
+  const gitRootPath = resolveGitRootPath(collectionPath);
+  const { abortConflictResolution } = require('../utils/git');
+  await abortConflictResolution(gitRootPath);
+  return { success: true };
+};
+
 const findReadmeFile = (dir) => {
   if (!dir) return null;
   const candidates = ['README.md', 'README.MD', 'readme.md', 'Readme.md', 'README'];
@@ -586,6 +618,10 @@ const registerGitIpc = (mainWindow) => {
   ipcMain.handle('renderer:git-get-readme', handleGetReadme);
   ipcMain.handle('renderer:git-save-readme', handleSaveReadme);
   ipcMain.handle('renderer:git-revert-commit', handleRevertCommit);
+  ipcMain.handle('renderer:git-get-file-content', handleGetFileContent);
+  ipcMain.handle('renderer:git-save-file-content', handleSaveFileContent);
+  ipcMain.handle('renderer:git-continue-merge', handleContinueMerge);
+  ipcMain.handle('renderer:git-abort-merge', handleAbortMerge);
 };
 
 module.exports = registerGitIpc;
@@ -616,5 +652,9 @@ module.exports.handleSaveGitignore = handleSaveGitignore;
 module.exports.handleGetReadme = handleGetReadme;
 module.exports.handleSaveReadme = handleSaveReadme;
 module.exports.handleRevertCommit = handleRevertCommit;
+module.exports.handleGetFileContent = handleGetFileContent;
+module.exports.handleSaveFileContent = handleSaveFileContent;
+module.exports.handleContinueMerge = handleContinueMerge;
+module.exports.handleAbortMerge = handleAbortMerge;
 module.exports.resolveRepoFilePath = resolveRepoFilePath;
 module.exports.requireBranchName = requireBranchName;
