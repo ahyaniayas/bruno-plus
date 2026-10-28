@@ -1,8 +1,7 @@
 name: macOS Tests
 on:
+  # Manual-only: tes tidak dijalankan otomatis di push/PR agar build & rilis cepat.
   workflow_dispatch:
-  push:
-    branches: [main, 'release/*']
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}

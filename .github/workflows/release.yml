@@ -1,15 +1,19 @@
 name: Release
 
-# Triggered by a version tag, e.g. v4.3.0-plus.1
+# Triggered by a version tag, e.g. v4.3.0-plus.a1b2c3d (hash commit)
 on:
   push:
     tags:
       - 'v*-plus.*'
   workflow_dispatch:
     inputs:
-      tag:
-        description: 'Tag to release (must already exist)'
+      base_version:
+        description: 'Base version (e.g. 4.3.0)'
         required: true
+        default: '4.3.0'
+      tag:
+        description: 'Full tag (optional). Leave empty to use v<base_version>-plus.<short-sha>'
+        required: false
 
 permissions:
   contents: write
@@ -119,6 +123,30 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
+      # Tag rilis = v<base_version>-plus.<short-sha> supaya tiap rilis bisa
+      # dilacak langsung ke commit-nya (bukan nomor urut manual).
+      - name: Resolve release tag
+        id: tag
+        shell: bash
+        env:
+          INPUT_TAG: ${{ inputs.tag }}
+          BASE_VERSION: ${{ inputs.base_version }}
+          REF_TYPE: ${{ github.ref_type }}
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          BASE_VERSION="${BASE_VERSION:-4.3.0}"
+          if [ -n "${INPUT_TAG}" ]; then
+            TAG="${INPUT_TAG}"
+          elif [ "${REF_TYPE}" = "tag" ]; then
+            # Dipicu push tag: pakai tag itu apa adanya.
+            TAG="${REF_NAME}"
+          else
+            SHORT_SHA="$(git rev-parse --short=7 HEAD)"
+            TAG="v${BASE_VERSION}-plus.${SHORT_SHA}"
+          fi
+          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+          echo "Release tag: ${TAG}"
+
       - name: Download installers
         uses: actions/download-artifact@v4
         with:
@@ -131,10 +159,21 @@ jobs:
       - name: Create GitHub Release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TAG: ${{ inputs.tag || github.ref_name }}
+          TAG: ${{ steps.tag.outputs.tag }}
         run: |
-          gh release create "$TAG" dist/* \
-            --title "Bruno Plus $TAG" \
-            --notes-file .github/release-notes-template.md \
-            --draft \
-            --verify-tag
+          NOTES=".github/release-notes-template.md"
+          if git ls-remote --exit-code --tags origin "refs/tags/${TAG}" > /dev/null 2>&1; then
+            echo "Tag ${TAG} sudah ada -> release dari tag tersebut."
+            gh release create "$TAG" dist/* \
+              --title "Bruno Plus ${TAG}" \
+              --notes-file "$NOTES" \
+              --draft \
+              --verify-tag
+          else
+            echo "Tag ${TAG} belum ada -> dibuat di commit ${GITHUB_SHA}."
+            gh release create "$TAG" dist/* \
+              --title "Bruno Plus ${TAG}" \
+              --notes-file "$NOTES" \
+              --draft \
+              --target "$GITHUB_SHA"
+          fi
